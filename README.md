@@ -1,4 +1,4 @@
-
+[Adocikou.html](https://github.com/user-attachments/files/32579753/Adocikou.html)
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
