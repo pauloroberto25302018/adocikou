@@ -1,10 +1,10 @@
-[index.html](https://github.com/user-attachments/files/32580085/index.html)
+[index.html](https://github.com/user-attachments/files/32580234/index.html)
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DoceControl - Controle de Consumo & Fiado em Nuvem</title>
+    <title>Adocikou - Controle de Consumo & Fiado em Nuvem</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -49,7 +49,7 @@
                     <i class="fa-solid font-bold fa-cookie-bite text-xl"></i>
                 </div>
                 <div>
-                    <h1 class="text-xl font-bold text-slate-800 leading-tight">DoceControl</h1>
+                    <h1 class="text-xl font-bold text-slate-800 leading-tight">Adocikou</h1>
                     <div class="flex items-center space-x-1.5">
                         <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                         <p class="text-xs text-rose-500 font-medium">Nuvem Conectada</p>
@@ -583,6 +583,17 @@
                     </select>
                 </div>
 
+                <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-200">
+                    <div>
+                        <label class="text-xs font-bold text-slate-700 block">Status no Catálogo</label>
+                        <span class="text-[11px] text-slate-500">Exibir este doce para os clientes na vitrine</span>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="editProdActive" class="sr-only peer">
+                        <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-emerald-500"></div>
+                    </label>
+                </div>
+
                 <div class="bg-rose-50/60 p-4 rounded-2xl border border-rose-100 space-y-3">
                     <label class="block text-xs font-bold text-rose-700">
                         <i class="fa-solid fa-camera text-rose-500 mr-1"></i> Foto com Celular ou Arquivo
@@ -650,7 +661,7 @@
             editCapturedImageBase64: null
         };
 
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'doce-control-app';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'adocikou-app';
         let db = null;
         let auth = null;
         let confirmCallback = null;
@@ -1305,7 +1316,7 @@
 
             const pendingLogs = state.logs.filter(l => l.userId === state.currentUser.id && l.status === 'PENDING');
             
-            let msg = `*Olá! Segue meu comprovante de pagamento da Doceria:*\n\n`;
+            let msg = `*Olá! Segue meu comprovante de pagamento da Adocikou:*\n\n`;
             msg += `👤 *Cliente:* ${state.currentUser.name}\n`;
             msg += `📅 *Data:* ${new Date().toLocaleDateString('pt-BR')}\n\n`;
             msg += `*Itens consumidos:*\n`;
@@ -1563,6 +1574,7 @@
                 price: price,
                 icon: icon,
                 imageUrl: imageUrl || '',
+                active: true,
                 color: 'bg-rose-100 text-rose-700'
             };
 
@@ -1592,7 +1604,7 @@
                         <div>
                             <div class="font-bold text-sm text-slate-800 flex items-center space-x-1.5">
                                 <span>${prod.name}</span>
-                                ${!isActive ? '<span class="text-[10px] font-bold px-2 py-0.5 bg-slate-200 text-slate-600 rounded-full">Inativo</span>' : ''}
+                                ${!isActive ? '<span class="text-[10px] font-bold px-2 py-0.5 bg-slate-200 text-slate-600 rounded-full">Inativo</span>' : '<span class="text-[10px] font-bold px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full">Ativo</span>'}
                             </div>
                             <div class="text-xs text-rose-600 font-bold">${formatCurrency(prod.price)}</div>
                         </div>
@@ -1623,7 +1635,7 @@
 
             await cloudUpdateProduct(updatedProd);
             updateUI();
-            showToast(newStatus ? `Doce "${product.name}" reativado!` : `Doce "${product.name}" inativado!`, "info");
+            showToast(newStatus ? `Doce "${product.name}" foi ativado!` : `Doce "${product.name}" foi inativado!`, newStatus ? "success" : "info");
         }
 
         function openEditProductModal(productId) {
@@ -1636,6 +1648,7 @@
             document.getElementById('editProdName').value = product.name;
             document.getElementById('editProdPrice').value = product.price;
             document.getElementById('editProdIcon').value = product.icon || 'fa-cookie-bite';
+            document.getElementById('editProdActive').checked = product.active !== false;
             document.getElementById('editProdImageUrl').value = product.imageUrl && !product.imageUrl.startsWith('data:') ? product.imageUrl : '';
 
             if (product.imageUrl) {
@@ -1657,6 +1670,7 @@
             const name = document.getElementById('editProdName').value.trim();
             const price = parseFloat(document.getElementById('editProdPrice').value);
             const icon = document.getElementById('editProdIcon').value;
+            const activeStatus = document.getElementById('editProdActive').checked;
             let imageUrl = document.getElementById('editProdImageUrl').value.trim();
 
             const existingProd = state.products.find(p => p.id === id);
@@ -1675,6 +1689,7 @@
                 price: price,
                 icon: icon,
                 imageUrl: imageUrl,
+                active: activeStatus,
                 color: existingProd ? existingProd.color : 'bg-rose-100 text-rose-700'
             };
 
