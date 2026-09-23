@@ -1,4 +1,4 @@
-[Adocikou.html](https://github.com/user-attachments/files/32579753/index.html)
+[index.html](https://github.com/user-attachments/files/32580085/index.html)
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -1131,7 +1131,14 @@
             const container = document.getElementById('productsGrid');
             container.innerHTML = '';
 
-            state.products.forEach(prod => {
+            const activeProducts = state.products.filter(p => p.active !== false);
+
+            if (activeProducts.length === 0) {
+                container.innerHTML = `<div class="col-span-full text-center py-8 text-slate-400 text-sm font-medium">Nenhum doce disponível no momento.</div>`;
+                return;
+            }
+
+            activeProducts.forEach(prod => {
                 const card = document.createElement('div');
                 card.className = "bg-white rounded-3xl p-4 shadow-sm border border-slate-100 hover:shadow-md transition duration-200 flex flex-col justify-between group";
                 
@@ -1571,8 +1578,9 @@
             container.innerHTML = '';
 
             state.products.forEach(prod => {
+                const isActive = prod.active !== false;
                 const card = document.createElement('div');
-                card.className = "p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between";
+                card.className = `p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between transition ${!isActive ? 'opacity-60 bg-slate-100' : ''}`;
                 
                 const thumb = prod.imageUrl 
                     ? `<img src="${prod.imageUrl}" class="w-10 h-10 rounded-xl object-cover border border-slate-200">`
@@ -1582,11 +1590,18 @@
                     <div class="flex items-center space-x-3">
                         ${thumb}
                         <div>
-                            <div class="font-bold text-sm text-slate-800">${prod.name}</div>
+                            <div class="font-bold text-sm text-slate-800 flex items-center space-x-1.5">
+                                <span>${prod.name}</span>
+                                ${!isActive ? '<span class="text-[10px] font-bold px-2 py-0.5 bg-slate-200 text-slate-600 rounded-full">Inativo</span>' : ''}
+                            </div>
                             <div class="text-xs text-rose-600 font-bold">${formatCurrency(prod.price)}</div>
                         </div>
                     </div>
                     <div class="flex items-center space-x-1">
+                        <button onclick="toggleProductActive('${prod.id}')" class="text-xs font-bold px-2.5 py-1 rounded-xl transition ${isActive ? 'bg-amber-100 text-amber-700 hover:bg-amber-200' : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'}" title="${isActive ? 'Inativar doce' : 'Ativar doce'}">
+                            <i class="fa-solid ${isActive ? 'fa-eye-slash' : 'fa-eye'} mr-1"></i>
+                            <span>${isActive ? 'Inativar' : 'Ativar'}</span>
+                        </button>
                         <button onclick="openEditProductModal('${prod.id}')" class="text-slate-500 hover:text-amber-600 p-1.5 rounded-lg transition" title="Editar doce">
                             <i class="fa-solid fa-pen-to-square text-sm"></i>
                         </button>
@@ -1597,6 +1612,18 @@
                 `;
                 container.appendChild(card);
             });
+        }
+
+        async function toggleProductActive(productId) {
+            const product = state.products.find(p => p.id === productId);
+            if (!product) return;
+
+            const newStatus = product.active === false ? true : false;
+            const updatedProd = { ...product, active: newStatus };
+
+            await cloudUpdateProduct(updatedProd);
+            updateUI();
+            showToast(newStatus ? `Doce "${product.name}" reativado!` : `Doce "${product.name}" inativado!`, "info");
         }
 
         function openEditProductModal(productId) {
@@ -1767,6 +1794,7 @@
         window.clearAddProductImage = clearAddProductImage;
         window.previewEditProductImage = previewEditProductImage;
         window.clearEditProductImage = clearEditProductImage;
+        window.toggleProductActive = toggleProductActive;
         window.copyPixKey = copyPixKey;
         window.closeConfirmModal = closeConfirmModal;
 
