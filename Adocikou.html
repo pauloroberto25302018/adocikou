@@ -1,0 +1,1775 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DoceControl - Controle de Consumo & Fiado em Nuvem</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#fff1f2',
+                            100: '#ffe4e6',
+                            200: '#fecdd3',
+                            400: '#fb7185',
+                            500: '#f43f5e',
+                            600: '#e11d48',
+                            700: '#be123c',
+                        }
+                    },
+                    fontFamily: {
+                        display: ['Fredoka', 'sans-serif'],
+                        body: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3, .font-title { font-family: 'Fredoka', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #fda4af; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #f43f5e; }
+    </style>
+</head>
+<body class="bg-rose-50/50 text-slate-800 min-h-screen flex flex-col antialiased">
+
+    <header class="bg-white/80 backdrop-blur-md border-b border-rose-100 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-5xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-3 cursor-pointer" onclick="switchView('store')">
+                <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-rose-400 to-pink-500 flex items-center justify-center text-white shadow-md shadow-rose-200">
+                    <i class="fa-solid font-bold fa-cookie-bite text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-slate-800 leading-tight">DoceControl</h1>
+                    <div class="flex items-center space-x-1.5">
+                        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                        <p class="text-xs text-rose-500 font-medium">Nuvem Conectada</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-2">
+                <span id="currentRoleBadge" class="hidden sm:inline-block px-3 py-1 rounded-full text-xs font-semibold bg-rose-100 text-rose-700">
+                    Modo Cliente
+                </span>
+
+                <button id="btnSwitchUser" onclick="openUserModal()" class="flex items-center space-x-2 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-xl transition duration-200 text-sm font-medium border border-slate-200">
+                    <i class="fa-solid fa-user-circle text-rose-500 text-lg"></i>
+                    <span id="currentUserNavName" class="max-w-[110px] truncate">Entrar</span>
+                </button>
+
+                <button onclick="toggleAdminMode()" class="bg-slate-800 text-white hover:bg-slate-900 p-2 rounded-xl transition shadow-sm" title="Painel do Administrador">
+                    <i class="fa-solid fa-shield-halved text-base"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-5xl w-full mx-auto p-4 sm:p-6 space-y-6">
+
+        <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+        <!-- VIEW: CLIENTE - CATÁLOGO E REGISTRO -->
+        <section id="viewStore" class="space-y-6">
+            
+            <div id="userWelcomeBanner" class="bg-gradient-to-r from-rose-500 to-pink-500 rounded-3xl p-5 text-white shadow-lg shadow-rose-200/50 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div class="space-y-1">
+                    <span class="bg-white/20 text-white text-xs font-semibold px-2.5 py-0.5 rounded-full uppercase tracking-wider">Perfil Ativo</span>
+                    <h2 class="text-2xl font-bold font-title" id="bannerUserName">Olá, Visitante!</h2>
+                    <p class="text-rose-100 text-sm">Selecione os doces que você pegou hoje para registrar no seu extrato.</p>
+                </div>
+                <div class="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-3 flex items-center space-x-4 w-full md:w-auto justify-between">
+                    <div>
+                        <div class="text-xs text-rose-100">Débito Atual</div>
+                        <div class="text-2xl font-bold text-white font-title" id="bannerUserBalance">R$ 0,00</div>
+                    </div>
+                    <button onclick="switchView('myAccount')" class="bg-white text-rose-600 hover:bg-rose-50 px-4 py-2 rounded-xl text-sm font-bold transition shadow-sm">
+                        Ver Extrato
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center">
+                <div>
+                    <h3 class="text-xl font-bold font-title text-slate-800">Doces Disponíveis</h3>
+                    <p class="text-sm text-slate-500">Clique em "Pegar Este" para registrar seu consumo</p>
+                </div>
+                <div class="text-xs text-slate-500 bg-white px-3 py-1.5 rounded-lg shadow-sm border border-slate-100 hidden sm:block">
+                    <i class="fa-solid fa-cloud text-emerald-500 mr-1"></i> Sincronizado em tempo real
+                </div>
+            </div>
+
+            <div id="productsGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                <!-- Inserido dinamicamente via JS -->
+            </div>
+        </section>
+
+        <!-- VIEW: MEU EXTRATO (CLIENTE) -->
+        <section id="viewMyAccount" class="hidden space-y-6">
+            <div class="flex items-center justify-between">
+                <button onclick="switchView('store')" class="text-sm font-semibold text-rose-600 hover:text-rose-700 flex items-center space-x-1">
+                    <i class="fa-solid fa-arrow-left"></i>
+                    <span>Voltar para Vitrine</span>
+                </button>
+                <span class="text-xs bg-slate-200 text-slate-700 px-2.5 py-1 rounded-full font-medium" id="myAccountDate">--/--/----</span>
+            </div>
+
+            <div class="bg-white rounded-3xl p-6 shadow-sm border border-rose-100 space-y-4">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pb-4 border-b border-slate-100">
+                    <div>
+                        <span class="text-xs font-semibold uppercase text-slate-400 tracking-wider">Conta Individual</span>
+                        <h2 class="text-2xl font-bold font-title text-slate-800" id="extratoClientName">Nome do Cliente</h2>
+                        <p class="text-xs text-slate-500">Acompanhe todos os seus consumos registrados</p>
+                    </div>
+                    <div class="bg-rose-50 border border-rose-100 p-4 rounded-2xl text-right w-full sm:w-auto">
+                        <div class="text-xs text-rose-500 font-semibold">Total Pendente (Fiado)</div>
+                        <div class="text-3xl font-bold text-rose-600 font-title" id="extratoTotalDebt">R$ 0,00</div>
+                    </div>
+                </div>
+
+                <!-- Box da Chave Pix com Botão Copiar -->
+                <div class="bg-rose-50/70 border border-rose-200/80 p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3">
+                    <div class="flex items-center space-x-3 w-full sm:w-auto">
+                        <div class="w-10 h-10 rounded-2xl bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-sm shadow-rose-200">
+                            <i class="fa-solid fa-qrcode text-lg"></i>
+                        </div>
+                        <div>
+                            <span class="text-[11px] font-bold text-rose-600 uppercase tracking-wider block">Chave Pix para Pagamento</span>
+                            <span id="pixKeyDisplay" class="font-bold text-slate-800 text-sm font-mono">84 987878247</span>
+                        </div>
+                    </div>
+                    <button onclick="copyPixKey()" class="w-full sm:w-auto bg-white hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs px-4 py-2.5 rounded-xl transition flex items-center justify-center space-x-2 shrink-0 shadow-sm">
+                        <i class="fa-solid fa-copy"></i>
+                        <span>Copiar Chave Pix</span>
+                    </button>
+                </div>
+
+                <div class="flex flex-col sm:flex-row items-center justify-between gap-3 bg-green-50 border border-green-200 p-4 rounded-2xl">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-full bg-green-500 text-white flex items-center justify-center shrink-0">
+                            <i class="fa-brands fa-whatsapp text-2xl"></i>
+                        </div>
+                        <div class="text-xs sm:text-sm text-green-900">
+                            <p class="font-bold">Vai pagar agora?</p>
+                            <p class="text-green-700">Envie o comprovante Pix no WhatsApp do admin para dar baixa.</p>
+                        </div>
+                    </div>
+                    <button onclick="sendWhatsAppSummary()" class="w-full sm:w-auto bg-green-600 hover:bg-green-700 text-white font-semibold text-sm px-5 py-2.5 rounded-xl transition flex items-center justify-center space-x-2 shrink-0">
+                        <i class="fa-brands fa-whatsapp"></i>
+                        <span>Enviar Comprovante</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 space-y-4">
+                <h3 class="text-lg font-bold font-title text-slate-800">Histórico de Consumo</h3>
+                <div class="overflow-x-auto custom-scrollbar">
+                    <table class="w-full text-left text-sm text-slate-600">
+                        <thead class="bg-slate-50 text-slate-400 font-semibold text-xs uppercase border-b border-slate-100">
+                            <tr>
+                                <th class="p-3">Data / Hora</th>
+                                <th class="p-3">Doce / Item</th>
+                                <th class="p-3 text-center">Qtd</th>
+                                <th class="p-3 text-right">Valor Un.</th>
+                                <th class="p-3 text-right">Subtotal</th>
+                                <th class="p-3 text-center">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="myConsumptionTable" class="divide-y divide-slate-100">
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW: PAINEL ADMINISTRADOR -->
+        <section id="viewAdmin" class="hidden space-y-6">
+            
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900 text-white p-6 rounded-3xl shadow-xl">
+                <div>
+                    <span class="bg-rose-500 text-white text-xs font-bold px-2.5 py-0.5 rounded-full uppercase">Área Restrita</span>
+                    <h2 class="text-2xl font-bold font-title mt-1">Painel do Administrador</h2>
+                    <p class="text-slate-400 text-sm">Gerencie o fiado, dê baixa nos pagamentos e acompanhe os consumos.</p>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button onclick="toggleAdminMode()" class="text-xs bg-rose-600 hover:bg-rose-700 text-white px-3.5 py-2 rounded-xl transition font-semibold">
+                        Sair do Admin
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
+                    <div class="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-clock"></i>
+                    </div>
+                    <div>
+                        <div class="text-xs text-slate-400 font-medium">Total a Receber (Pendente)</div>
+                        <div class="text-2xl font-bold text-slate-800 font-title" id="adminTotalPending">R$ 0,00</div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
+                    <div class="w-12 h-12 rounded-2xl bg-green-100 text-green-600 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-circle-check"></i>
+                    </div>
+                    <div>
+                        <div class="text-xs text-slate-400 font-medium">Total Já Recebido</div>
+                        <div class="text-2xl font-bold text-slate-800 font-title" id="adminTotalPaid">R$ 0,00</div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
+                    <div class="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-users"></i>
+                    </div>
+                    <div>
+                        <div class="text-xs text-slate-400 font-medium">Clientes Devedores</div>
+                        <div class="text-2xl font-bold text-slate-800 font-title" id="adminDebtorsCount">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex border-b border-slate-200 space-x-4 overflow-x-auto custom-scrollbar">
+                <button id="adminTabBtnDebts" onclick="switchAdminTab('debts')" class="pb-3 text-sm font-bold text-rose-600 border-b-2 border-rose-600 whitespace-nowrap">
+                    <i class="fa-solid fa-receipt mr-1"></i> Contas & Dar Baixa
+                </button>
+                <button id="adminTabBtnLog" onclick="switchAdminTab('log')" class="pb-3 text-sm font-bold text-slate-500 hover:text-slate-700 whitespace-nowrap">
+                    <i class="fa-solid fa-list-check mr-1"></i> Extrato Geral (Dia a Dia)
+                </button>
+                <button id="adminTabBtnProducts" onclick="switchAdminTab('products')" class="pb-3 text-sm font-bold text-slate-500 hover:text-slate-700 whitespace-nowrap">
+                    <i class="fa-solid fa-box-archive mr-1"></i> Doces Cadastrados
+                </button>
+                <button id="adminTabBtnSettings" onclick="switchAdminTab('settings')" class="pb-3 text-sm font-bold text-slate-500 hover:text-slate-700 whitespace-nowrap">
+                    <i class="fa-solid fa-gear mr-1"></i> Configurações
+                </button>
+            </div>
+
+            <!-- TAB 1: CONTAS DOS CLIENTES & DAR BAIXA -->
+            <div id="adminTabDebts" class="space-y-4">
+                <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 space-y-4">
+                    <div class="flex justify-between items-center">
+                        <h3 class="text-lg font-bold font-title text-slate-800">Saldos dos Clientes</h3>
+                        <span class="text-xs text-slate-400">Clique em "Dar Baixa" para zerar o saldo após o Pix</span>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="adminUsersList">
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 2: EXTRATO GERAL DIA A DIA -->
+            <div id="adminTabLog" class="hidden space-y-4">
+                <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 space-y-4">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                        <h3 class="text-lg font-bold font-title text-slate-800">Histórico de Consumo (Dia a Dia)</h3>
+                        <div class="text-xs text-slate-500">Registros sincronizados em tempo real</div>
+                    </div>
+
+                    <div class="overflow-x-auto custom-scrollbar">
+                        <table class="w-full text-left text-sm text-slate-600">
+                            <thead class="bg-slate-50 text-slate-400 font-semibold text-xs uppercase border-b border-slate-100">
+                                <tr>
+                                    <th class="p-3">Data/Hora</th>
+                                    <th class="p-3">Cliente</th>
+                                    <th class="p-3">Doce</th>
+                                    <th class="p-3 text-center">Qtd</th>
+                                    <th class="p-3 text-right">Valor Total</th>
+                                    <th class="p-3 text-center">Status</th>
+                                    <th class="p-3 text-center">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminGlobalLogTable" class="divide-y divide-slate-100">
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 3: GERENCIAR DOCES -->
+            <div id="adminTabProducts" class="hidden space-y-4">
+                <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 space-y-6">
+                    <div class="flex justify-between items-center border-b border-slate-100 pb-4">
+                        <h3 class="text-lg font-bold font-title text-slate-800">Cadastrar Novo Doce</h3>
+                    </div>
+
+                    <form id="formAddProduct" onsubmit="handleAddProduct(event)" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 mb-1">Nome do Doce</label>
+                            <input type="text" id="prodName" required placeholder="Ex: Brownie de Ninho" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-rose-400">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 mb-1">Preço (R$)</label>
+                            <input type="number" step="0.50" id="prodPrice" required placeholder="7.00" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-rose-400">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-500 mb-1">Ícone (Padrão)</label>
+                            <select id="prodIcon" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-rose-400">
+                                <option value="fa-cookie">🍪 Cookie / Biscoito</option>
+                                <option value="fa-cookie-bite" selected>🍫 Brownie / Chocolate</option>
+                                <option value="fa-cake-candles">🍰 Bolo / Torta</option>
+                                <option value="fa-ice-cream">🍦 Sorvete / Gelado</option>
+                                <option value="fa-candy-cane">🍬 Bala / Doce</option>
+                            </select>
+                        </div>
+                        
+                        <div class="sm:col-span-3 bg-rose-50/60 p-4 rounded-2xl border border-rose-100 space-y-3">
+                            <label class="block text-xs font-bold text-rose-700">
+                                <i class="fa-solid fa-camera text-rose-500 mr-1"></i> Tirar Foto com Celular ou Escolher Arquivo
+                            </label>
+                            <div class="flex flex-col sm:flex-row items-center gap-3">
+                                <input type="file" id="prodCameraInput" accept="image/*" capture="environment" onchange="previewAddProductImage(event)" class="hidden">
+                                <button type="button" onclick="document.getElementById('prodCameraInput').click()" class="w-full sm:w-auto bg-rose-600 hover:bg-rose-700 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center justify-center space-x-2 transition shadow-sm">
+                                    <i class="fa-solid fa-camera"></i>
+                                    <span>Tirar Foto / Abrir Galeria</span>
+                                </button>
+                                <span class="text-xs text-slate-400">ou informe um link web abaixo:</span>
+                            </div>
+
+                            <div id="addProdImagePreviewBox" class="hidden flex items-center space-x-3 pt-2">
+                                <img id="addProdImagePreview" src="" class="w-16 h-16 rounded-xl object-cover border border-rose-200 shadow-sm">
+                                <div>
+                                    <p class="text-xs font-bold text-slate-700">Foto Selecionada!</p>
+                                    <button type="button" onclick="clearAddProductImage()" class="text-[11px] text-rose-600 font-semibold hover:underline">Remover foto</button>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-[11px] font-semibold text-slate-400 mb-1">URL / Link da Foto (Opcional se tirou a foto acima)</label>
+                                <input type="url" id="prodImageUrl" placeholder="https://site.com/foto-do-brownie.jpg" class="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-rose-400">
+                            </div>
+                        </div>
+
+                        <div class="sm:col-span-3 flex justify-end">
+                            <button type="submit" class="bg-rose-600 hover:bg-rose-700 text-white text-sm font-bold px-5 py-2.5 rounded-xl transition shadow-md shadow-rose-200">
+                                Cadastrar Doce
+                            </button>
+                        </div>
+                    </form>
+
+                    <h4 class="text-base font-bold font-title text-slate-800 pt-4 border-t border-slate-100">Doces Ativos no Catálogo</h4>
+                    <div id="adminProductsList" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB 4: CONFIGURAÇÕES -->
+            <div id="adminTabSettings" class="hidden space-y-4">
+                <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 space-y-6">
+                    <div>
+                        <h3 class="text-lg font-bold font-title text-slate-800">Configurações Gerais</h3>
+                        <div class="max-w-md space-y-4 mt-4">
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-500 mb-1">Chave Pix do Estabelecimento</label>
+                                <input type="text" id="adminPixKeyInput" value="84987878247" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-rose-400">
+                                <p class="text-xs text-slate-400 mt-1">Celular, CPF, CNPJ ou E-mail para os clientes copiarem no extrato</p>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-500 mb-1">WhatsApp do Admin (para receber comprovantes)</label>
+                                <input type="text" id="adminPhoneInput" value="5584987878247" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-rose-400">
+                                <p class="text-xs text-slate-400 mt-1">Insira com DDD e 55 no início. Ex: 5584987878247</p>
+                            </div>
+
+                            <div class="pt-2">
+                                <label class="block text-xs font-semibold text-slate-500 mb-1">Nova Senha do Administrador</label>
+                                <input type="password" id="adminPasswordSettingInput" placeholder="Sua senha atual ou nova senha" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-rose-400">
+                                <p class="text-xs text-slate-400 mt-1">Senha padrão inicial: <code class="bg-slate-100 px-1 py-0.5 rounded text-rose-600 font-mono">admin123</code></p>
+                            </div>
+
+                            <button onclick="saveSettings()" class="bg-slate-800 hover:bg-slate-900 text-white text-sm font-bold px-5 py-2.5 rounded-xl transition shadow-sm">
+                                Salvar Configurações
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="pt-6 border-t border-slate-100 space-y-3">
+                        <div class="flex items-center space-x-2">
+                            <i class="fa-solid fa-broom text-amber-500"></i>
+                            <h4 class="text-base font-bold font-title text-slate-800">Manutenção & Limpeza de Histórico</h4>
+                        </div>
+                        <p class="text-xs text-slate-500 max-w-lg">
+                            Remova históricos antigos de consumos <strong>já pagos</strong> para manter o banco de dados leve. Esta ação não afeta saldos devedores em aberto.
+                        </p>
+                        <div class="flex flex-wrap items-center gap-2 pt-1">
+                            <button onclick="purgePaidLogsOlderThan(30)" class="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-bold px-3.5 py-2 rounded-xl transition">
+                                <i class="fa-solid fa-trash-can mr-1"></i> Apagar Pagos (+30 dias)
+                            </button>
+                            <button onclick="purgePaidLogsOlderThan(90)" class="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-bold px-3.5 py-2 rounded-xl transition">
+                                <i class="fa-solid fa-trash-can mr-1"></i> Apagar Pagos (+90 dias)
+                            </button>
+                            <button onclick="purgePaidLogsOlderThan(180)" class="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-bold px-3.5 py-2 rounded-xl transition">
+                                <i class="fa-solid fa-trash-can mr-1"></i> Apagar Pagos (+6 meses)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- MODAL: CONFIRMAÇÃO CUSTOMIZADA (SUBSTITUI CONFIRM NATIVO) -->
+    <div id="modalConfirm" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl max-w-xs w-full p-6 space-y-4 shadow-2xl text-center">
+            <div class="w-12 h-12 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto text-xl">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h3 id="confirmModalTitle" class="text-lg font-bold font-title text-slate-800">Confirmar Ação</h3>
+            <p id="confirmModalMessage" class="text-xs text-slate-500 leading-relaxed"></p>
+            <div class="grid grid-cols-2 gap-3 pt-2">
+                <button onclick="closeConfirmModal(false)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 rounded-xl text-xs transition">
+                    Cancelar
+                </button>
+                <button onclick="closeConfirmModal(true)" class="bg-rose-600 hover:bg-rose-700 text-white font-bold py-2 rounded-xl text-xs transition shadow-md shadow-rose-200">
+                    Confirmar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: AUTENTICAÇÃO E CADASTRO PRIVADO DO CLIENTE -->
+    <div id="modalUserSelect" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 space-y-5 shadow-2xl">
+            <div class="flex justify-between items-center">
+                <h3 id="userModalTitle" class="text-xl font-bold font-title text-slate-800">Acessar Minha Conta</h3>
+                <button onclick="closeUserModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <div class="flex border-b border-slate-200 space-x-2">
+                <button id="btnTabLogin" onclick="switchUserAuthTab('login')" class="flex-1 pb-2.5 text-center text-sm font-bold text-rose-600 border-b-2 border-rose-600">
+                    <i class="fa-solid fa-right-to-bracket mr-1"></i> Entrar
+                </button>
+                <button id="btnTabRegister" onclick="switchUserAuthTab('register')" class="flex-1 pb-2.5 text-center text-sm font-bold text-slate-400 hover:text-slate-600">
+                    <i class="fa-solid fa-user-plus mr-1"></i> Criar Conta
+                </button>
+            </div>
+
+            <form id="formUserLogin" onsubmit="handleLoginUser(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Seu WhatsApp (com DDD)</label>
+                    <input type="tel" id="loginPhoneInput" required placeholder="Ex: 84 99999-8888" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-rose-400">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Sua Senha / PIN (4 dígitos)</label>
+                    <input type="password" maxlength="6" id="loginPinInput" required placeholder="••••" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-rose-400 text-center text-lg tracking-widest font-mono">
+                </div>
+                <button type="submit" class="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold py-2.5 rounded-xl transition text-sm shadow-md shadow-rose-200 flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-right-to-bracket"></i>
+                    <span>Entrar na Minha Conta</span>
+                </button>
+            </form>
+
+            <form id="formUserRegister" onsubmit="handleCreateUser(event)" class="space-y-4 hidden">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Seu Nome Completo</label>
+                    <input type="text" id="newUserNameInput" required placeholder="Ex: Paulo Silva" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-rose-400">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">WhatsApp (com DDD)</label>
+                    <input type="tel" id="newUserPhoneInput" required placeholder="Ex: 84 99999-8888" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-rose-400">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Crie uma Senha / PIN de Acesso (4 dígitos)</label>
+                    <input type="password" maxlength="6" id="newUserPinInput" required placeholder="Ex: 1234" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-rose-400 text-center text-lg tracking-widest font-mono">
+                </div>
+                <button type="submit" class="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold py-2.5 rounded-xl transition text-sm shadow-md shadow-rose-200 flex items-center justify-center space-x-2">
+                    <i class="fa-solid fa-check"></i>
+                    <span>Confirmar Cadastro e Acessar</span>
+                </button>
+            </form>
+
+            <div id="logoutSection" class="hidden border-t border-slate-100 pt-3 text-center">
+                <button onclick="logoutCurrentUser()" class="text-xs text-rose-600 hover:underline font-semibold">
+                    <i class="fa-solid fa-right-from-bracket mr-1"></i> Sair do perfil atual
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: REGISTRAR CONSUMO DE DOCE -->
+    <div id="modalConsumeProduct" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl max-w-sm w-full p-6 space-y-5 shadow-2xl">
+            <div class="text-center space-y-2">
+                <div id="modalProdIconContainer" class="w-20 h-20 rounded-2xl bg-rose-100 text-rose-500 mx-auto flex items-center justify-center text-3xl overflow-hidden">
+                    <i id="modalProdIcon" class="fa-solid fa-cookie-bite"></i>
+                    <img id="modalProdImg" src="" class="w-full h-full object-cover hidden" alt="Doce">
+                </div>
+                <h3 id="modalProdName" class="text-xl font-bold font-title text-slate-800">Nome do Doce</h3>
+                <div id="modalProdPrice" class="text-lg font-bold text-rose-600">R$ 0,00</div>
+            </div>
+
+            <div class="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-3">
+                <label class="block text-center text-xs font-semibold text-slate-500">Quantidade que você está pegando:</label>
+                <div class="flex items-center justify-center space-x-4">
+                    <button onclick="changeConsumeQty(-1)" class="w-10 h-10 rounded-xl bg-white border border-slate-200 font-bold text-lg text-slate-700 shadow-sm hover:bg-slate-100">-</button>
+                    <span id="consumeQtyValue" class="text-2xl font-bold font-title text-slate-800 w-8 text-center">1</span>
+                    <button onclick="changeConsumeQty(1)" class="w-10 h-10 rounded-xl bg-white border border-slate-200 font-bold text-lg text-slate-700 shadow-sm hover:bg-slate-100">+</button>
+                </div>
+            </div>
+
+            <div class="bg-amber-50 border border-amber-100 p-3 rounded-xl text-xs text-amber-800 flex items-start space-x-2">
+                <i class="fa-solid fa-lightbulb text-amber-500 text-sm mt-0.5"></i>
+                <span>Este valor de <strong id="modalProdTotalPreview">R$ 0,00</strong> será adicionado ao seu extrato devedor.</span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="closeConsumeModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl text-sm transition">
+                    Cancelar
+                </button>
+                <button onclick="confirmConsumption()" class="bg-rose-600 hover:bg-rose-700 text-white font-bold py-2.5 rounded-xl transition text-sm shadow-md shadow-rose-200">
+                    Confirmar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: ADMIN AUTH (SENHA) -->
+    <div id="modalAdminAuth" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl max-w-xs w-full p-6 space-y-4 shadow-2xl">
+            <div class="text-center space-y-1">
+                <div class="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto text-slate-700 text-xl">
+                    <i class="fa-solid fa-lock"></i>
+                </div>
+                <h3 class="text-lg font-bold font-title text-slate-800">Acesso Restrito</h3>
+                <p class="text-xs text-slate-400">Digite a senha do administrador</p>
+            </div>
+
+            <form onsubmit="handleAdminAuth(event)" class="space-y-3">
+                <input type="password" id="adminPasswordInput" placeholder="Senha do Admin" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-rose-400 text-center">
+                <button type="submit" class="w-full bg-slate-800 hover:bg-slate-900 text-white font-bold py-2 rounded-xl text-sm transition">
+                    Entrar no Painel
+                </button>
+            </form>
+            <button onclick="closeAdminAuthModal()" class="w-full text-xs text-slate-400 hover:text-slate-600">Cancelar</button>
+        </div>
+    </div>
+
+    <!-- MODAL: EDITAR DOCE -->
+    <div id="modalEditProduct" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center">
+                <h3 class="text-xl font-bold font-title text-slate-800">Editar Doce</h3>
+                <button onclick="closeEditProductModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <form id="formEditProduct" onsubmit="handleSaveEditProduct(event)" class="space-y-4">
+                <input type="hidden" id="editProdId">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">Nome do Doce</label>
+                    <input type="text" id="editProdName" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-rose-400">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">Preço (R$)</label>
+                    <input type="number" step="0.50" id="editProdPrice" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-rose-400">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-500 mb-1">Ícone / Categoria</label>
+                    <select id="editProdIcon" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-rose-400">
+                        <option value="fa-cookie">🍪 Cookie / Biscoito</option>
+                        <option value="fa-cookie-bite">🍫 Brownie / Chocolate</option>
+                        <option value="fa-cake-candles">🍰 Bolo / Torta</option>
+                        <option value="fa-ice-cream">🍦 Sorvete / Gelado</option>
+                        <option value="fa-candy-cane">🍬 Bala / Doce</option>
+                    </select>
+                </div>
+
+                <div class="bg-rose-50/60 p-4 rounded-2xl border border-rose-100 space-y-3">
+                    <label class="block text-xs font-bold text-rose-700">
+                        <i class="fa-solid fa-camera text-rose-500 mr-1"></i> Foto com Celular ou Arquivo
+                    </label>
+                    <div class="flex items-center space-x-3">
+                        <input type="file" id="editProdCameraInput" accept="image/*" capture="environment" onchange="previewEditProductImage(event)" class="hidden">
+                        <button type="button" onclick="document.getElementById('editProdCameraInput').click()" class="bg-rose-600 hover:bg-rose-700 text-white font-bold px-3.5 py-2 rounded-xl text-xs flex items-center space-x-1.5 transition shadow-sm">
+                            <i class="fa-solid fa-camera"></i>
+                            <span>Tirar Nova Foto</span>
+                        </button>
+                    </div>
+
+                    <div id="editProdImagePreviewBox" class="hidden flex items-center space-x-3 pt-2">
+                        <img id="editProdImagePreview" src="" class="w-16 h-16 rounded-xl object-cover border border-rose-200 shadow-sm">
+                        <div>
+                            <p class="text-xs font-bold text-slate-700">Nova Foto Pronta!</p>
+                            <button type="button" onclick="clearEditProductImage()" class="text-[11px] text-rose-600 font-semibold hover:underline">Remover</button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-[11px] font-semibold text-slate-400 mb-1">URL / Link da Foto (Opcional)</label>
+                        <input type="url" id="editProdImageUrl" placeholder="https://..." class="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-rose-400">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 pt-2">
+                    <button type="button" onclick="closeEditProductModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl text-sm transition">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="bg-rose-600 hover:bg-rose-700 text-white font-bold py-2.5 rounded-xl transition text-sm shadow-md shadow-rose-200">
+                        Salvar Alterações
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT APPLICATION LOGIC -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const DEFAULT_PRODUCTS = [
+            { id: 'p1', name: 'Brownie Tradicional', price: 7.00, icon: 'fa-cookie-bite', color: 'bg-amber-100 text-amber-700' },
+            { id: 'p2', name: 'Cookie Chocoberry', price: 6.00, icon: 'fa-cookie', color: 'bg-rose-100 text-rose-700' },
+            { id: 'p3', name: 'Bolo no Pote Ninho', price: 9.50, icon: 'fa-cake-candles', color: 'bg-purple-100 text-purple-700' },
+            { id: 'p4', name: 'Palha Italiana', price: 5.00, icon: 'fa-candy-cane', color: 'bg-blue-100 text-blue-700' }
+        ];
+
+        let state = {
+            products: [],
+            users: [],
+            logs: [],
+            currentUser: null,
+            isAdmin: false,
+            pixKey: '84987878247',
+            adminPhone: '5584987878247',
+            adminPassword: 'admin123',
+            selectedProductForConsume: null,
+            consumeQty: 1,
+            dbReady: false,
+            addCapturedImageBase64: null,
+            editCapturedImageBase64: null
+        };
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'doce-control-app';
+        let db = null;
+        let auth = null;
+        let confirmCallback = null;
+
+        const memoryStore = {};
+        function safeGet(key) {
+            try { return localStorage.getItem(key); } catch(e) { return memoryStore[key] || null; }
+        }
+        function safeSet(key, val) {
+            try { localStorage.setItem(key, val); } catch(e) { memoryStore[key] = val; }
+        }
+
+        // CUSTOM CONFIRMATION MODAL HELPER
+        function customConfirm(title, message, callback) {
+            document.getElementById('confirmModalTitle').innerText = title;
+            document.getElementById('confirmModalMessage').innerText = message;
+            confirmCallback = callback;
+            document.getElementById('modalConfirm').classList.remove('hidden');
+        }
+
+        function closeConfirmModal(accepted) {
+            document.getElementById('modalConfirm').classList.add('hidden');
+            if (accepted && confirmCallback) {
+                confirmCallback();
+            }
+            confirmCallback = null;
+        }
+
+        /* IMAGE COMPRESSION FROM CAMERA */
+        function processAndCompressImage(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        let width = img.width;
+                        let height = img.height;
+                        const maxDim = 600;
+                        if (width > maxDim || height > maxDim) {
+                            if (width > height) {
+                                height = Math.round((height * maxDim) / width);
+                                width = maxDim;
+                            } else {
+                                width = Math.round((width * maxDim) / height);
+                                height = maxDim;
+                            }
+                        }
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        resolve(canvas.toDataURL('image/jpeg', 0.8));
+                    };
+                    img.onerror = reject;
+                    img.src = e.target.result;
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        /* INITIALIZATION & CLOUD LISTENERS */
+        async function initApp() {
+            try {
+                if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+                    const firebaseConfig = JSON.parse(__firebase_config);
+                    const app = initializeApp(firebaseConfig);
+                    auth = getAuth(app);
+                    db = getFirestore(app);
+
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+
+                    setupFirestoreListeners();
+                } else {
+                    setupLocalFallback();
+                }
+            } catch (err) {
+                console.warn("Firestore fallback active:", err);
+                setupLocalFallback();
+            }
+
+            const savedUser = safeGet('doceria_current_user');
+            if (savedUser) {
+                try { state.currentUser = JSON.parse(savedUser); } catch(e){}
+            }
+
+            updateUI();
+        }
+
+        function setupFirestoreListeners() {
+            const productsRef = collection(db, 'artifacts', appId, 'public', 'data', 'products');
+            const usersRef = collection(db, 'artifacts', appId, 'public', 'data', 'users');
+            const logsRef = collection(db, 'artifacts', appId, 'public', 'data', 'logs');
+            const settingsRef = collection(db, 'artifacts', appId, 'public', 'data', 'settings');
+
+            onSnapshot(productsRef, (snapshot) => {
+                const items = [];
+                snapshot.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
+                state.products = items.length > 0 ? items : DEFAULT_PRODUCTS;
+                updateUI();
+            }, (err) => console.error("Products sync error:", err));
+
+            onSnapshot(usersRef, (snapshot) => {
+                const items = [];
+                snapshot.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
+                state.users = items;
+                
+                if (state.currentUser) {
+                    const match = state.users.find(u => u.id === state.currentUser.id);
+                    if (match) state.currentUser = match;
+                }
+                updateUI();
+            }, (err) => console.error("Users sync error:", err));
+
+            onSnapshot(logsRef, (snapshot) => {
+                const items = [];
+                snapshot.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
+                items.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
+                state.logs = items;
+                updateUI();
+            }, (err) => console.error("Logs sync error:", err));
+
+            onSnapshot(settingsRef, (snapshot) => {
+                snapshot.forEach(doc => {
+                    if (doc.id === 'general') {
+                        state.pixKey = doc.data().pixKey || '84987878247';
+                        state.adminPhone = doc.data().adminPhone || '5584987878247';
+                        state.adminPassword = doc.data().adminPassword || 'admin123';
+                    }
+                });
+                updateUI();
+            }, (err) => console.error("Settings sync error:", err));
+
+            state.dbReady = true;
+        }
+
+        function setupLocalFallback() {
+            const savedP = safeGet('doceria_products');
+            const savedU = safeGet('doceria_users');
+            const savedL = safeGet('doceria_logs');
+            const savedPh = safeGet('doceria_admin_phone');
+            const savedPass = safeGet('doceria_admin_password');
+
+            state.products = savedP ? JSON.parse(savedP) : DEFAULT_PRODUCTS;
+            state.users = savedU ? JSON.parse(savedU) : [];
+            state.logs = savedL ? JSON.parse(savedL) : [];
+            state.pixKey = safeGet('doceria_pix_key') || '84987878247';
+            state.adminPhone = savedPh || '5584987878247';
+            state.adminPassword = savedPass || 'admin123';
+            state.dbReady = false;
+        }
+
+        function saveLocalState() {
+            if (!state.dbReady) {
+                safeSet('doceria_products', JSON.stringify(state.products));
+                safeSet('doceria_users', JSON.stringify(state.users));
+                safeSet('doceria_logs', JSON.stringify(state.logs));
+                safeSet('doceria_admin_phone', state.adminPhone);
+                safeSet('doceria_admin_password', state.adminPassword);
+                safeSet('doceria_pix_key', state.pixKey);
+            }
+            if (state.currentUser) {
+                safeSet('doceria_current_user', JSON.stringify(state.currentUser));
+            } else {
+                try { localStorage.removeItem('doceria_current_user'); } catch(e){}
+            }
+        }
+
+        /* CLOUD CRUD FUNCTIONS */
+        async function cloudSaveProduct(prod) {
+            if (state.dbReady && db) {
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'products', prod.id), prod);
+            } else {
+                state.products.push(prod);
+                saveLocalState();
+            }
+        }
+
+        async function cloudUpdateProduct(prod) {
+            if (state.dbReady && db) {
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'products', prod.id), prod);
+            } else {
+                const idx = state.products.findIndex(p => p.id === prod.id);
+                if (idx !== -1) state.products[idx] = prod;
+                saveLocalState();
+            }
+        }
+
+        async function cloudDeleteProduct(prodId) {
+            if (state.dbReady && db) {
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'products', prodId));
+            } else {
+                state.products = state.products.filter(p => p.id !== prodId);
+                saveLocalState();
+            }
+        }
+
+        async function cloudSaveUser(user) {
+            if (state.dbReady && db) {
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', user.id), user);
+            } else {
+                state.users.push(user);
+                saveLocalState();
+            }
+        }
+
+        async function cloudSaveLog(logItem) {
+            if (state.dbReady && db) {
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'logs', logItem.id), logItem);
+            } else {
+                state.logs.unshift(logItem);
+                saveLocalState();
+            }
+        }
+
+        async function cloudMarkUserPaid(userId) {
+            const pendingLogs = state.logs.filter(l => l.userId === userId && l.status === 'PENDING');
+            if (state.dbReady && db) {
+                for (let l of pendingLogs) {
+                    const ref = doc(db, 'artifacts', appId, 'public', 'data', 'logs', l.id);
+                    await updateDoc(ref, { status: 'PAID', paidAt: new Date().toISOString() });
+                }
+            } else {
+                state.logs.forEach(l => {
+                    if (l.userId === userId && l.status === 'PENDING') {
+                        l.status = 'PAID';
+                        l.paidAt = new Date().toISOString();
+                    }
+                });
+                saveLocalState();
+            }
+        }
+
+        async function cloudSaveSettings(pixKey, phone, password) {
+            state.pixKey = pixKey;
+            state.adminPhone = phone;
+            state.adminPassword = password;
+            if (state.dbReady && db) {
+                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'general'), { 
+                    pixKey: pixKey,
+                    adminPhone: phone,
+                    adminPassword: password
+                });
+            } else {
+                safeSet('doceria_pix_key', state.pixKey);
+                safeSet('doceria_admin_phone', state.adminPhone);
+                safeSet('doceria_admin_password', state.adminPassword);
+                saveLocalState();
+            }
+        }
+
+        async function cloudDeleteLog(logId) {
+            if (state.dbReady && db) {
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'logs', logId));
+            } else {
+                state.logs = state.logs.filter(l => l.id !== logId);
+                saveLocalState();
+            }
+        }
+
+        function deleteLogItem(logId) {
+            customConfirm("Excluir Registro", "Deseja realmente excluir este registro de consumo?", async () => {
+                await cloudDeleteLog(logId);
+                updateUI();
+                showToast("Registro excluído com sucesso!", "success");
+            });
+        }
+
+        function purgePaidLogsOlderThan(days) {
+            const cutoffDate = new Date();
+            cutoffDate.setDate(cutoffDate.getDate() - days);
+
+            const logsToDelete = state.logs.filter(l => l.status === 'PAID' && new Date(l.timestamp) < cutoffDate);
+            
+            if (logsToDelete.length === 0) {
+                showToast(`Nenhum registro PAGO com mais de ${days} dias foi encontrado.`, "info");
+                return;
+            }
+
+            customConfirm(
+                "Limpeza de Histórico",
+                `Confirma a exclusão de ${logsToDelete.length} registro(s) já pagos com mais de ${days} dias?`,
+                async () => {
+                    for (let log of logsToDelete) {
+                        await cloudDeleteLog(log.id);
+                    }
+                    updateUI();
+                    showToast(`${logsToDelete.length} registros antigos foram apagados!`, "success");
+                }
+            );
+        }
+
+        /* NAVIGATION & UI UPDATES */
+        function switchView(viewName) {
+            document.getElementById('viewStore').classList.add('hidden');
+            document.getElementById('viewMyAccount').classList.add('hidden');
+            document.getElementById('viewAdmin').classList.add('hidden');
+
+            if (viewName === 'store') {
+                document.getElementById('viewStore').classList.remove('hidden');
+            } else if (viewName === 'myAccount') {
+                if (!state.currentUser) {
+                    openUserModal();
+                    return;
+                }
+                renderMyAccount();
+                document.getElementById('viewMyAccount').classList.remove('hidden');
+            } else if (viewName === 'admin') {
+                document.getElementById('viewAdmin').classList.remove('hidden');
+                renderAdminPanel();
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function updateUI() {
+            const currentRoleBadge = document.getElementById('currentRoleBadge');
+            const currentUserNavName = document.getElementById('currentUserNavName');
+            const bannerUserName = document.getElementById('bannerUserName');
+            const bannerUserBalance = document.getElementById('bannerUserBalance');
+
+            if (state.isAdmin) {
+                currentRoleBadge.innerText = 'Modo Administrador';
+                currentRoleBadge.className = 'hidden sm:inline-block px-3 py-1 rounded-full text-xs font-semibold bg-slate-800 text-white';
+            } else {
+                currentRoleBadge.innerText = 'Modo Cliente';
+                currentRoleBadge.className = 'hidden sm:inline-block px-3 py-1 rounded-full text-xs font-semibold bg-rose-100 text-rose-700';
+            }
+
+            if (state.currentUser) {
+                currentUserNavName.innerText = state.currentUser.name;
+                bannerUserName.innerText = `Olá, ${state.currentUser.name}!`;
+                
+                const userDebt = getUserTotalDebt(state.currentUser.id);
+                bannerUserBalance.innerText = formatCurrency(userDebt);
+            } else {
+                currentUserNavName.innerText = 'Entrar';
+                bannerUserName.innerText = 'Olá, Visitante!';
+                bannerUserBalance.innerText = 'R$ 0,00';
+            }
+
+            renderProductsGrid();
+            if (!document.getElementById('viewMyAccount').classList.contains('hidden')) {
+                renderMyAccount();
+            }
+            if (!document.getElementById('viewAdmin').classList.contains('hidden')) {
+                renderAdminPanel();
+            }
+        }
+
+        /* AUTHENTICATION MODALS & ACTIONS */
+        function openUserModal() {
+            const logoutSection = document.getElementById('logoutSection');
+            if (state.currentUser) {
+                logoutSection.classList.remove('hidden');
+            } else {
+                logoutSection.classList.add('hidden');
+            }
+
+            switchUserAuthTab('login');
+            document.getElementById('modalUserSelect').classList.remove('hidden');
+        }
+
+        function closeUserModal() {
+            document.getElementById('modalUserSelect').classList.add('hidden');
+        }
+
+        function switchUserAuthTab(tab) {
+            const btnLogin = document.getElementById('btnTabLogin');
+            const btnRegister = document.getElementById('btnTabRegister');
+            const formLogin = document.getElementById('formUserLogin');
+            const formRegister = document.getElementById('formUserRegister');
+
+            if (tab === 'login') {
+                btnLogin.className = "flex-1 pb-2.5 text-center text-sm font-bold text-rose-600 border-b-2 border-rose-600";
+                btnRegister.className = "flex-1 pb-2.5 text-center text-sm font-bold text-slate-400 hover:text-slate-600";
+                formLogin.classList.remove('hidden');
+                formRegister.classList.add('hidden');
+            } else {
+                btnRegister.className = "flex-1 pb-2.5 text-center text-sm font-bold text-rose-600 border-b-2 border-rose-600";
+                btnLogin.className = "flex-1 pb-2.5 text-center text-sm font-bold text-slate-400 hover:text-slate-600";
+                formRegister.classList.remove('hidden');
+                formLogin.classList.add('hidden');
+            }
+        }
+
+        function handleLoginUser(e) {
+            e.preventDefault();
+            const phoneInput = document.getElementById('loginPhoneInput').value.replace(/\D/g, '');
+            const pinInput = document.getElementById('loginPinInput').value.trim();
+
+            if (!phoneInput || !pinInput) {
+                showToast("Preencha seu WhatsApp e sua Senha/PIN", "error");
+                return;
+            }
+
+            const cleanSearchPhone = phoneInput.startsWith('55') ? phoneInput : '55' + phoneInput;
+
+            const foundUser = state.users.find(u => {
+                const userPhoneClean = u.phone ? u.phone.replace(/\D/g, '') : '';
+                return (userPhoneClean === cleanSearchPhone || userPhoneClean.endsWith(phoneInput)) && (u.pin === pinInput || !u.pin);
+            });
+
+            if (foundUser) {
+                state.currentUser = foundUser;
+                saveLocalState();
+                closeUserModal();
+                updateUI();
+                showToast(`Bem-vindo(a) de volta, ${foundUser.name}!`, "success");
+            } else {
+                showToast("WhatsApp ou Senha incorretos. Verifique e tente novamente.", "error");
+            }
+        }
+
+        async function handleCreateUser(e) {
+            e.preventDefault();
+            const nameInput = document.getElementById('newUserNameInput');
+            const phoneInput = document.getElementById('newUserPhoneInput');
+            const pinInput = document.getElementById('newUserPinInput');
+            
+            const name = nameInput.value.trim();
+            let phone = phoneInput ? phoneInput.value.replace(/\D/g, '') : '';
+            const pin = pinInput ? pinInput.value.trim() : '1234';
+
+            if (!name || !phone || !pin) {
+                showToast("Por favor, preencha todos os campos do cadastro.", "error");
+                return;
+            }
+
+            if (phone.length >= 10 && !phone.startsWith('55')) {
+                phone = '55' + phone;
+            }
+
+            const existingUser = state.users.find(u => u.phone === phone);
+            if (existingUser) {
+                showToast("Este WhatsApp já possui cadastro! Faça Login.", "error");
+                switchUserAuthTab('login');
+                document.getElementById('loginPhoneInput').value = phone;
+                return;
+            }
+
+            const newUser = {
+                id: 'u_' + Date.now(),
+                name: name,
+                phone: phone,
+                pin: pin,
+                createdAt: new Date().toISOString()
+            };
+
+            await cloudSaveUser(newUser);
+            state.currentUser = newUser;
+            saveLocalState();
+            
+            nameInput.value = '';
+            phoneInput.value = '';
+            pinInput.value = '';
+
+            closeUserModal();
+            updateUI();
+            showToast(`Bem-vindo(a), ${name}! Conta criada na nuvem com sucesso.`, 'success');
+        }
+
+        function logoutCurrentUser() {
+            state.currentUser = null;
+            saveLocalState();
+            closeUserModal();
+            switchView('store');
+            updateUI();
+            showToast("Você saiu da sua conta.", "info");
+        }
+
+        /* STORE CATALOG RENDERING & CONSUMPTION */
+        function renderProductsGrid() {
+            const container = document.getElementById('productsGrid');
+            container.innerHTML = '';
+
+            state.products.forEach(prod => {
+                const card = document.createElement('div');
+                card.className = "bg-white rounded-3xl p-4 shadow-sm border border-slate-100 hover:shadow-md transition duration-200 flex flex-col justify-between group";
+                
+                const imageOrIcon = prod.imageUrl 
+                    ? `<div class="w-full h-28 rounded-2xl overflow-hidden mb-2 bg-slate-100"><img src="${prod.imageUrl}" alt="${prod.name}" class="w-full h-full object-cover group-hover:scale-105 transition duration-200" onerror="this.onerror=null; this.parentElement.innerHTML='<div class=\\'w-12 h-12 rounded-2xl ${prod.color || 'bg-rose-100 text-rose-600'} flex items-center justify-center text-2xl\\'><i class=\\'fa-solid ${prod.icon}\\'></i></div>';"></div>`
+                    : `<div class="w-12 h-12 rounded-2xl ${prod.color || 'bg-rose-100 text-rose-600'} flex items-center justify-center text-2xl group-hover:scale-110 transition duration-200"><i class="fa-solid ${prod.icon}"></i></div>`;
+
+                card.innerHTML = `
+                    <div class="space-y-2">
+                        ${imageOrIcon}
+                        <div>
+                            <h4 class="font-bold text-slate-800 text-base leading-snug">${prod.name}</h4>
+                            <div class="text-rose-600 font-bold font-title text-lg mt-1">${formatCurrency(prod.price)}</div>
+                        </div>
+                    </div>
+                    <button onclick="openConsumeModal('${prod.id}')" class="mt-4 w-full bg-slate-900 hover:bg-rose-600 text-white font-semibold text-xs py-2.5 rounded-2xl transition duration-200 flex items-center justify-center space-x-1 shadow-sm">
+                        <i class="fa-solid fa-plus text-xs"></i>
+                        <span>Pegar Este</span>
+                    </button>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function openConsumeModal(productId) {
+            if (!state.currentUser) {
+                openUserModal();
+                return;
+            }
+
+            const product = state.products.find(p => p.id === productId);
+            if (!product) return;
+
+            state.selectedProductForConsume = product;
+            state.consumeQty = 1;
+
+            document.getElementById('modalProdName').innerText = product.name;
+            document.getElementById('modalProdPrice').innerText = formatCurrency(product.price);
+            
+            const iconEl = document.getElementById('modalProdIcon');
+            const imgEl = document.getElementById('modalProdImg');
+
+            if (product.imageUrl) {
+                iconEl.classList.add('hidden');
+                imgEl.src = product.imageUrl;
+                imgEl.classList.remove('hidden');
+            } else {
+                imgEl.classList.add('hidden');
+                iconEl.className = `fa-solid ${product.icon}`;
+                iconEl.classList.remove('hidden');
+            }
+
+            document.getElementById('consumeQtyValue').innerText = '1';
+            
+            updateConsumePreview();
+            document.getElementById('modalConsumeProduct').classList.remove('hidden');
+        }
+
+        function closeConsumeModal() {
+            document.getElementById('modalConsumeProduct').classList.add('hidden');
+            state.selectedProductForConsume = null;
+        }
+
+        function changeConsumeQty(delta) {
+            state.consumeQty = Math.max(1, state.consumeQty + delta);
+            document.getElementById('consumeQtyValue').innerText = state.consumeQty;
+            updateConsumePreview();
+        }
+
+        function updateConsumePreview() {
+            if (!state.selectedProductForConsume) return;
+            const total = state.selectedProductForConsume.price * state.consumeQty;
+            document.getElementById('modalProdTotalPreview').innerText = formatCurrency(total);
+        }
+
+        async function confirmConsumption() {
+            if (!state.currentUser || !state.selectedProductForConsume) return;
+
+            const newLog = {
+                id: 'log_' + Date.now(),
+                userId: state.currentUser.id,
+                userName: state.currentUser.name,
+                productId: state.selectedProductForConsume.id,
+                productName: state.selectedProductForConsume.name,
+                unitPrice: state.selectedProductForConsume.price,
+                qty: state.consumeQty,
+                totalPrice: state.selectedProductForConsume.price * state.consumeQty,
+                timestamp: new Date().toISOString(),
+                status: 'PENDING'
+            };
+
+            await cloudSaveLog(newLog);
+            closeConsumeModal();
+            updateUI();
+            showToast(`Consumo de ${newLog.qty}x ${newLog.productName} registrado!`, "success");
+        }
+
+        /* PIX COPY & WHATSAPP INTEGRATION */
+        function copyPixKey() {
+            const key = state.pixKey || '84987878247';
+            const tempInput = document.createElement('input');
+            tempInput.value = key;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            try {
+                document.execCommand('copy');
+                showToast(`Chave Pix (${key}) copiada com sucesso!`, 'success');
+            } catch (err) {
+                showToast('Erro ao copiar a chave Pix.', 'error');
+            }
+            document.body.removeChild(tempInput);
+        }
+
+        function renderMyAccount() {
+            if (!state.currentUser) return;
+
+            document.getElementById('extratoClientName').innerText = state.currentUser.name;
+            document.getElementById('myAccountDate').innerText = new Date().toLocaleDateString('pt-BR');
+
+            const pixDisplay = document.getElementById('pixKeyDisplay');
+            if (pixDisplay) pixDisplay.innerText = state.pixKey || '84 987878247';
+
+            const debt = getUserTotalDebt(state.currentUser.id);
+            document.getElementById('extratoTotalDebt').innerText = formatCurrency(debt);
+
+            const userLogs = state.logs.filter(l => l.userId === state.currentUser.id);
+            const tbody = document.getElementById('myConsumptionTable');
+            tbody.innerHTML = '';
+
+            if (userLogs.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="text-center py-6 text-slate-400 text-xs">Nenhum consumo registrado ainda.</td></tr>`;
+                return;
+            }
+
+            userLogs.forEach(log => {
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition";
+                
+                const isPaid = log.status === 'PAID';
+                const statusBadge = isPaid 
+                    ? `<span class="px-2 py-0.5 text-[10px] font-bold bg-green-100 text-green-700 rounded-full">Pago</span>`
+                    : `<span class="px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-700 rounded-full">Pendente</span>`;
+
+                tr.innerHTML = `
+                    <td class="p-3 text-xs text-slate-500">${formatDate(log.timestamp)}</td>
+                    <td class="p-3 font-semibold text-slate-800">${log.productName}</td>
+                    <td class="p-3 text-center font-bold">${log.qty}</td>
+                    <td class="p-3 text-right text-xs text-slate-500">${formatCurrency(log.unitPrice)}</td>
+                    <td class="p-3 text-right font-bold ${isPaid ? 'text-slate-400 line-through' : 'text-rose-600'}">${formatCurrency(log.totalPrice)}</td>
+                    <td class="p-3 text-center">${statusBadge}</td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function sendWhatsAppSummary() {
+            if (!state.currentUser) return;
+
+            const debt = getUserTotalDebt(state.currentUser.id);
+            if (debt === 0) {
+                showToast("Você não possui saldo pendente no momento!", "info");
+                return;
+            }
+
+            const pendingLogs = state.logs.filter(l => l.userId === state.currentUser.id && l.status === 'PENDING');
+            
+            let msg = `*Olá! Segue meu comprovante de pagamento da Doceria:*\n\n`;
+            msg += `👤 *Cliente:* ${state.currentUser.name}\n`;
+            msg += `📅 *Data:* ${new Date().toLocaleDateString('pt-BR')}\n\n`;
+            msg += `*Itens consumidos:*\n`;
+
+            pendingLogs.forEach(item => {
+                msg += `• ${item.qty}x ${item.productName} (${formatCurrency(item.totalPrice)})\n`;
+            });
+
+            msg += `\n💰 *TOTAL A PAGAR:* ${formatCurrency(debt)}\n\n`;
+            msg += `_Estou enviando o comprovante em anexo para você dar baixa no meu saldo. Obrigado!_`;
+
+            const encodedMsg = encodeURIComponent(msg);
+            const url = `https://wa.me/${state.adminPhone}?text=${encodedMsg}`;
+            window.open(url, '_blank');
+        }
+
+        /* ADMIN PANEL CONTROLS */
+        function toggleAdminMode() {
+            if (state.isAdmin) {
+                state.isAdmin = false;
+                switchView('store');
+                updateUI();
+                showToast("Saiu do modo Administrador", "info");
+            } else {
+                document.getElementById('modalAdminAuth').classList.remove('hidden');
+            }
+        }
+
+        function closeAdminAuthModal() {
+            document.getElementById('modalAdminAuth').classList.add('hidden');
+        }
+
+        function handleAdminAuth(e) {
+            e.preventDefault();
+            const pass = document.getElementById('adminPasswordInput').value;
+            const validPassword = state.adminPassword || 'admin123';
+
+            if (pass === validPassword || pass === 'admin123') {
+                state.isAdmin = true;
+                closeAdminAuthModal();
+                document.getElementById('adminPasswordInput').value = '';
+                switchView('admin');
+                updateUI();
+                showToast("Acesso concedido como Admin!", "success");
+            } else {
+                showToast("Senha incorreta! Verifique a senha digitada.", "error");
+            }
+        }
+
+        function switchAdminTab(tabName) {
+            ['debts', 'log', 'products', 'settings'].forEach(t => {
+                document.getElementById(`adminTab${capitalize(t)}`).classList.add('hidden');
+                const btn = document.getElementById(`adminTabBtn${capitalize(t)}`);
+                if (btn) {
+                    btn.className = "pb-3 text-sm font-bold text-slate-500 hover:text-slate-700 whitespace-nowrap";
+                }
+            });
+
+            document.getElementById(`adminTab${capitalize(tabName)}`).classList.remove('hidden');
+            const activeBtn = document.getElementById(`adminTabBtn${capitalize(tabName)}`);
+            if (activeBtn) {
+                activeBtn.className = "pb-3 text-sm font-bold text-rose-600 border-b-2 border-rose-600 whitespace-nowrap";
+            }
+        }
+
+        function renderAdminPanel() {
+            let totalPending = 0;
+            let totalPaid = 0;
+            const debtorsSet = new Set();
+
+            state.logs.forEach(log => {
+                if (log.status === 'PENDING') {
+                    totalPending += log.totalPrice;
+                    debtorsSet.add(log.userId);
+                } else if (log.status === 'PAID') {
+                    totalPaid += log.totalPrice;
+                }
+            });
+
+            document.getElementById('adminTotalPending').innerText = formatCurrency(totalPending);
+            document.getElementById('adminTotalPaid').innerText = formatCurrency(totalPaid);
+            document.getElementById('adminDebtorsCount').innerText = debtorsSet.size;
+
+            renderAdminUsersList();
+            renderAdminGlobalLog();
+            renderAdminProductsList();
+
+            if (document.getElementById('adminPixKeyInput')) {
+                document.getElementById('adminPixKeyInput').value = state.pixKey || '84987878247';
+            }
+            document.getElementById('adminPhoneInput').value = state.adminPhone;
+            document.getElementById('adminPasswordSettingInput').value = state.adminPassword || 'admin123';
+        }
+
+        function renderAdminUsersList() {
+            const container = document.getElementById('adminUsersList');
+            container.innerHTML = '';
+
+            state.users.forEach(user => {
+                const debt = getUserTotalDebt(user.id);
+                const userPendingLogs = state.logs.filter(l => l.userId === user.id && l.status === 'PENDING');
+
+                const card = document.createElement('div');
+                card.className = "bg-slate-50 border border-slate-200 p-4 rounded-2xl flex flex-col justify-between space-y-3";
+                
+                let pendingItemsText = userPendingLogs.map(i => `${i.qty}x ${i.productName}`).join(', ') || 'Nenhum item em aberto';
+                const formattedPhone = user.phone ? user.phone.replace(/^55/, '') : '';
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <h4 class="font-bold text-slate-800 text-base">${user.name}</h4>
+                            ${formattedPhone ? `
+                                <a href="https://wa.me/${user.phone}" target="_blank" class="text-xs text-green-600 hover:underline flex items-center font-medium mt-0.5">
+                                    <i class="fa-brands fa-whatsapp text-green-500 mr-1"></i> ${formattedPhone}
+                                </a>
+                            ` : '<span class="text-[11px] text-slate-400">Sem WhatsApp</span>'}
+                            <p class="text-xs text-slate-500 truncate max-w-[200px] mt-1" title="${pendingItemsText}">${pendingItemsText}</p>
+                        </div>
+                        <span class="text-lg font-bold font-title ${debt > 0 ? 'text-rose-600' : 'text-slate-400'}">
+                            ${formatCurrency(debt)}
+                        </span>
+                    </div>
+                    <div class="pt-2 border-t border-slate-200/60 flex items-center justify-between">
+                        <span class="text-[11px] text-slate-400">${userPendingLogs.length} consumo(s) pendente(s)</span>
+                        ${debt > 0 ? `
+                            <button onclick="clearUserDebt('${user.id}')" class="bg-green-600 hover:bg-green-700 text-white font-bold text-xs px-3 py-1.5 rounded-xl transition shadow-sm flex items-center space-x-1">
+                                <i class="fa-solid fa-check"></i>
+                                <span>Dar Baixa (Pago)</span>
+                            </button>
+                        ` : `
+                            <span class="text-xs text-green-600 font-semibold flex items-center"><i class="fa-solid fa-circle-check mr-1"></i> Em dia</span>
+                        `}
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function clearUserDebt(userId) {
+            const user = state.users.find(u => u.id === userId);
+            const userDebt = getUserTotalDebt(userId);
+
+            if (!user || userDebt === 0) return;
+
+            customConfirm(
+                "Dar Baixa no Pagamento",
+                `Confirma dar baixa de ${formatCurrency(userDebt)} no pagamento de ${user.name}? O saldo devedor será zerado.`,
+                async () => {
+                    await cloudMarkUserPaid(userId);
+                    updateUI();
+                    showToast(`Pagamento de ${user.name} baixado na nuvem! Saldo zerado.`, "success");
+                }
+            );
+        }
+
+        function renderAdminGlobalLog() {
+            const tbody = document.getElementById('adminGlobalLogTable');
+            tbody.innerHTML = '';
+
+            if (state.logs.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="text-center py-6 text-slate-400 text-xs">Nenhum registro no histórico.</td></tr>`;
+                return;
+            }
+
+            state.logs.forEach(log => {
+                const isPaid = log.status === 'PAID';
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition";
+                tr.innerHTML = `
+                    <td class="p-3 text-xs text-slate-500">${formatDate(log.timestamp)}</td>
+                    <td class="p-3 font-semibold text-slate-800">${log.userName || 'Cliente'}</td>
+                    <td class="p-3">${log.productName}</td>
+                    <td class="p-3 text-center font-bold">${log.qty}</td>
+                    <td class="p-3 text-right font-bold ${isPaid ? 'text-slate-400' : 'text-rose-600'}">${formatCurrency(log.totalPrice)}</td>
+                    <td class="p-3 text-center">
+                        ${isPaid ? '<span class="px-2 py-0.5 text-[10px] font-bold bg-green-100 text-green-700 rounded-full">Pago</span>' : '<span class="px-2 py-0.5 text-[10px] font-bold bg-amber-100 text-amber-700 rounded-full">Pendente</span>'}
+                    </td>
+                    <td class="p-3 text-center">
+                        <button onclick="deleteLogItem('${log.id}')" class="text-slate-400 hover:text-rose-600 p-1 transition" title="Excluir este registro">
+                            <i class="fa-solid fa-trash-can text-xs"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        /* CAMERA / PHOTO UPLOAD PREVIEWS */
+        async function previewAddProductImage(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            try {
+                showToast("Processando e otimizando a foto...", "info");
+                const base64 = await processAndCompressImage(file);
+                state.addCapturedImageBase64 = base64;
+                
+                const previewImg = document.getElementById('addProdImagePreview');
+                const previewBox = document.getElementById('addProdImagePreviewBox');
+                previewImg.src = base64;
+                previewBox.classList.remove('hidden');
+                showToast("Foto da câmera pronta!", "success");
+            } catch(e) {
+                showToast("Erro ao carregar imagem.", "error");
+            }
+        }
+
+        function clearAddProductImage() {
+            state.addCapturedImageBase64 = null;
+            document.getElementById('prodCameraInput').value = '';
+            document.getElementById('addProdImagePreviewBox').classList.add('hidden');
+        }
+
+        async function previewEditProductImage(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            try {
+                showToast("Processando e otimizando a foto...", "info");
+                const base64 = await processAndCompressImage(file);
+                state.editCapturedImageBase64 = base64;
+                
+                const previewImg = document.getElementById('editProdImagePreview');
+                const previewBox = document.getElementById('editProdImagePreviewBox');
+                previewImg.src = base64;
+                previewBox.classList.remove('hidden');
+                showToast("Nova foto pronta!", "success");
+            } catch(e) {
+                showToast("Erro ao carregar imagem.", "error");
+            }
+        }
+
+        function clearEditProductImage() {
+            state.editCapturedImageBase64 = null;
+            document.getElementById('editProdCameraInput').value = '';
+            document.getElementById('editProdImagePreviewBox').classList.add('hidden');
+        }
+
+        async function handleAddProduct(e) {
+            e.preventDefault();
+            const name = document.getElementById('prodName').value.trim();
+            const price = parseFloat(document.getElementById('prodPrice').value);
+            const icon = document.getElementById('prodIcon').value;
+            let imageUrl = document.getElementById('prodImageUrl').value.trim();
+
+            if (state.addCapturedImageBase64) {
+                imageUrl = state.addCapturedImageBase64;
+            }
+
+            if (!name || isNaN(price)) return;
+
+            const newProd = {
+                id: 'prod_' + Date.now(),
+                name: name,
+                price: price,
+                icon: icon,
+                imageUrl: imageUrl || '',
+                color: 'bg-rose-100 text-rose-700'
+            };
+
+            await cloudSaveProduct(newProd);
+            document.getElementById('formAddProduct').reset();
+            clearAddProductImage();
+            updateUI();
+            showToast("Doce cadastrado com sucesso!", "success");
+        }
+
+        function renderAdminProductsList() {
+            const container = document.getElementById('adminProductsList');
+            container.innerHTML = '';
+
+            state.products.forEach(prod => {
+                const card = document.createElement('div');
+                card.className = "p-3 bg-slate-50 border border-slate-200 rounded-2xl flex items-center justify-between";
+                
+                const thumb = prod.imageUrl 
+                    ? `<img src="${prod.imageUrl}" class="w-10 h-10 rounded-xl object-cover border border-slate-200">`
+                    : `<div class="w-10 h-10 rounded-xl bg-white text-rose-500 border border-slate-200 flex items-center justify-center"><i class="fa-solid ${prod.icon}"></i></div>`;
+
+                card.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        ${thumb}
+                        <div>
+                            <div class="font-bold text-sm text-slate-800">${prod.name}</div>
+                            <div class="text-xs text-rose-600 font-bold">${formatCurrency(prod.price)}</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center space-x-1">
+                        <button onclick="openEditProductModal('${prod.id}')" class="text-slate-500 hover:text-amber-600 p-1.5 rounded-lg transition" title="Editar doce">
+                            <i class="fa-solid fa-pen-to-square text-sm"></i>
+                        </button>
+                        <button onclick="deleteProduct('${prod.id}')" class="text-slate-500 hover:text-rose-600 p-1.5 rounded-lg transition" title="Excluir doce">
+                            <i class="fa-solid fa-trash-can text-sm"></i>
+                        </button>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function openEditProductModal(productId) {
+            const product = state.products.find(p => p.id === productId);
+            if (!product) return;
+
+            clearEditProductImage();
+
+            document.getElementById('editProdId').value = product.id;
+            document.getElementById('editProdName').value = product.name;
+            document.getElementById('editProdPrice').value = product.price;
+            document.getElementById('editProdIcon').value = product.icon || 'fa-cookie-bite';
+            document.getElementById('editProdImageUrl').value = product.imageUrl && !product.imageUrl.startsWith('data:') ? product.imageUrl : '';
+
+            if (product.imageUrl) {
+                document.getElementById('editProdImagePreview').src = product.imageUrl;
+                document.getElementById('editProdImagePreviewBox').classList.remove('hidden');
+            }
+
+            document.getElementById('modalEditProduct').classList.remove('hidden');
+        }
+
+        function closeEditProductModal() {
+            document.getElementById('modalEditProduct').classList.add('hidden');
+            clearEditProductImage();
+        }
+
+        async function handleSaveEditProduct(e) {
+            e.preventDefault();
+            const id = document.getElementById('editProdId').value;
+            const name = document.getElementById('editProdName').value.trim();
+            const price = parseFloat(document.getElementById('editProdPrice').value);
+            const icon = document.getElementById('editProdIcon').value;
+            let imageUrl = document.getElementById('editProdImageUrl').value.trim();
+
+            const existingProd = state.products.find(p => p.id === id);
+
+            if (state.editCapturedImageBase64) {
+                imageUrl = state.editCapturedImageBase64;
+            } else if (!imageUrl && existingProd && existingProd.imageUrl) {
+                imageUrl = existingProd.imageUrl;
+            }
+
+            if (!name || isNaN(price)) return;
+
+            const updatedProd = {
+                id: id,
+                name: name,
+                price: price,
+                icon: icon,
+                imageUrl: imageUrl,
+                color: existingProd ? existingProd.color : 'bg-rose-100 text-rose-700'
+            };
+
+            await cloudUpdateProduct(updatedProd);
+            closeEditProductModal();
+            updateUI();
+            showToast("Doce atualizado com sucesso!", "success");
+        }
+
+        function deleteProduct(productId) {
+            const product = state.products.find(p => p.id === productId);
+            if (!product) return;
+
+            customConfirm("Excluir Doce", `Tem certeza que deseja excluir "${product.name}" do catálogo?`, async () => {
+                await cloudDeleteProduct(productId);
+                updateUI();
+                showToast("Doce excluído do catálogo!", "success");
+            });
+        }
+
+        async function saveSettings() {
+            const pixKey = document.getElementById('adminPixKeyInput').value.trim();
+            const phone = document.getElementById('adminPhoneInput').value.replace(/\D/g, '');
+            const newPassword = document.getElementById('adminPasswordSettingInput').value.trim();
+
+            if (!pixKey) {
+                showToast("Por favor, insira uma Chave Pix válida.", "error");
+                return;
+            }
+
+            if (phone.length < 10) {
+                showToast("Digite um telefone válido com DDD (ex: 5584987878247)", "error");
+                return;
+            }
+
+            const passwordToSave = newPassword || state.adminPassword || 'admin123';
+
+            await cloudSaveSettings(pixKey, phone, passwordToSave);
+            showToast("Configurações e Chave Pix salvas com sucesso!", "success");
+        }
+
+        /* UTILITY FUNCTIONS */
+        function getUserTotalDebt(userId) {
+            return state.logs
+                .filter(log => log.userId === userId && log.status === 'PENDING')
+                .reduce((acc, log) => acc + log.totalPrice, 0);
+        }
+
+        function formatCurrency(val) {
+            return (val || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+        }
+
+        function formatDate(isoStr) {
+            if (!isoStr) return '';
+            const date = new Date(isoStr);
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const mins = String(date.getMinutes()).padStart(2, '0');
+            return `${day}/${month} às ${hours}:${mins}`;
+        }
+
+        function capitalize(str) {
+            return str.charAt(0).toUpperCase() + str.slice(1);
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+
+            let bgColor = 'bg-slate-800 text-white';
+            if (type === 'success') bgColor = 'bg-emerald-600 text-white';
+            if (type === 'error') bgColor = 'bg-rose-600 text-white';
+
+            toast.className = `${bgColor} px-4 py-3 rounded-2xl shadow-xl text-xs font-semibold flex items-center space-x-2 transition duration-300 opacity-0 transform translate-y-2 pointer-events-auto`;
+            toast.innerHTML = `<span>${message}</span>`;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.remove('opacity-0', 'translate-y-2');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        // Exporting functions for HTML onclick handlers
+        window.switchView = switchView;
+        window.openUserModal = openUserModal;
+        window.closeUserModal = closeUserModal;
+        window.switchUserAuthTab = switchUserAuthTab;
+        window.handleLoginUser = handleLoginUser;
+        window.handleCreateUser = handleCreateUser;
+        window.logoutCurrentUser = logoutCurrentUser;
+        window.openConsumeModal = openConsumeModal;
+        window.closeConsumeModal = closeConsumeModal;
+        window.changeConsumeQty = changeConsumeQty;
+        window.confirmConsumption = confirmConsumption;
+        window.sendWhatsAppSummary = sendWhatsAppSummary;
+        window.toggleAdminMode = toggleAdminMode;
+        window.closeAdminAuthModal = closeAdminAuthModal;
+        window.handleAdminAuth = handleAdminAuth;
+        window.switchAdminTab = switchAdminTab;
+        window.clearUserDebt = clearUserDebt;
+        window.handleAddProduct = handleAddProduct;
+        window.openEditProductModal = openEditProductModal;
+        window.closeEditProductModal = closeEditProductModal;
+        window.handleSaveEditProduct = handleSaveEditProduct;
+        window.deleteProduct = deleteProduct;
+        window.saveSettings = saveSettings;
+        window.deleteLogItem = deleteLogItem;
+        window.purgePaidLogsOlderThan = purgePaidLogsOlderThan;
+        window.previewAddProductImage = previewAddProductImage;
+        window.clearAddProductImage = clearAddProductImage;
+        window.previewEditProductImage = previewEditProductImage;
+        window.clearEditProductImage = clearEditProductImage;
+        window.copyPixKey = copyPixKey;
+        window.closeConfirmModal = closeConfirmModal;
+
+        window.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
