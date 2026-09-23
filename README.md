@@ -1,4 +1,4 @@
-[index.html](https://github.com/user-attachments/files/32580234/index.html)
+[index.html](https://github.com/user-attachments/files/32580547/index.html)
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -419,7 +419,7 @@
 
     </main>
 
-    <!-- MODAL: CONFIRMAÇÃO CUSTOMIZADA (SUBSTITUI CONFIRM NATIVO) -->
+    <!-- MODAL: CONFIRMAÇÃO CUSTOMIZADA -->
     <div id="modalConfirm" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
         <div class="bg-white rounded-3xl max-w-xs w-full p-6 space-y-4 shadow-2xl text-center">
             <div class="w-12 h-12 bg-rose-100 text-rose-600 rounded-2xl flex items-center justify-center mx-auto text-xl">
@@ -674,6 +674,11 @@
             try { localStorage.setItem(key, val); } catch(e) { memoryStore[key] = val; }
         }
 
+        // HELPER DE ID ÚNICO (PREVINE SOBRESCRITA DE PEDIDOS SEGUIDOS)
+        function generateUniqueId(prefix = 'id') {
+            return `${prefix}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+        }
+
         // CUSTOM CONFIRMATION MODAL HELPER
         function customConfirm(title, message, callback) {
             document.getElementById('confirmModalTitle').innerText = title;
@@ -690,7 +695,7 @@
             confirmCallback = null;
         }
 
-        /* IMAGE COMPRESSION FROM CAMERA */
+        /* COMPRESSÃO DE IMAGENS */
         function processAndCompressImage(file) {
             return new Promise((resolve, reject) => {
                 const reader = new FileReader();
@@ -724,7 +729,7 @@
             });
         }
 
-        /* INITIALIZATION & CLOUD LISTENERS */
+        /* INICIALIZAÇÃO & ESCUTA EM TEMPO REAL */
         async function initApp() {
             try {
                 if (typeof __firebase_config !== 'undefined' && __firebase_config) {
@@ -744,7 +749,7 @@
                     setupLocalFallback();
                 }
             } catch (err) {
-                console.warn("Firestore fallback active:", err);
+                console.warn("Firestore fallback ativo:", err);
                 setupLocalFallback();
             }
 
@@ -767,7 +772,7 @@
                 snapshot.forEach(doc => items.push({ id: doc.id, ...doc.data() }));
                 state.products = items.length > 0 ? items : DEFAULT_PRODUCTS;
                 updateUI();
-            }, (err) => console.error("Products sync error:", err));
+            }, (err) => console.error("Erro sincronizando produtos:", err));
 
             onSnapshot(usersRef, (snapshot) => {
                 const items = [];
@@ -779,7 +784,7 @@
                     if (match) state.currentUser = match;
                 }
                 updateUI();
-            }, (err) => console.error("Users sync error:", err));
+            }, (err) => console.error("Erro sincronizando usuários:", err));
 
             onSnapshot(logsRef, (snapshot) => {
                 const items = [];
@@ -787,7 +792,7 @@
                 items.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp));
                 state.logs = items;
                 updateUI();
-            }, (err) => console.error("Logs sync error:", err));
+            }, (err) => console.error("Erro sincronizando históricos:", err));
 
             onSnapshot(settingsRef, (snapshot) => {
                 snapshot.forEach(doc => {
@@ -798,7 +803,7 @@
                     }
                 });
                 updateUI();
-            }, (err) => console.error("Settings sync error:", err));
+            }, (err) => console.error("Erro sincronizando configurações:", err));
 
             state.dbReady = true;
         }
@@ -820,14 +825,12 @@
         }
 
         function saveLocalState() {
-            if (!state.dbReady) {
-                safeSet('doceria_products', JSON.stringify(state.products));
-                safeSet('doceria_users', JSON.stringify(state.users));
-                safeSet('doceria_logs', JSON.stringify(state.logs));
-                safeSet('doceria_admin_phone', state.adminPhone);
-                safeSet('doceria_admin_password', state.adminPassword);
-                safeSet('doceria_pix_key', state.pixKey);
-            }
+            safeSet('doceria_products', JSON.stringify(state.products));
+            safeSet('doceria_users', JSON.stringify(state.users));
+            safeSet('doceria_logs', JSON.stringify(state.logs));
+            safeSet('doceria_admin_phone', state.adminPhone);
+            safeSet('doceria_admin_password', state.adminPassword);
+            safeSet('doceria_pix_key', state.pixKey);
             if (state.currentUser) {
                 safeSet('doceria_current_user', JSON.stringify(state.currentUser));
             } else {
@@ -835,68 +838,85 @@
             }
         }
 
-        /* CLOUD CRUD FUNCTIONS */
+        /* ATUALIZAÇÕES OTIMISTAS + CLOUD CRUD */
         async function cloudSaveProduct(prod) {
+            const idx = state.products.findIndex(p => p.id === prod.id);
+            if (idx >= 0) state.products[idx] = prod;
+            else state.products.push(prod);
+            saveLocalState();
+
             if (state.dbReady && db) {
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'products', prod.id), prod);
-            } else {
-                state.products.push(prod);
-                saveLocalState();
+                try {
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'products', prod.id), prod);
+                } catch(e) { console.error(e); }
             }
         }
 
         async function cloudUpdateProduct(prod) {
-            if (state.dbReady && db) {
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'products', prod.id), prod);
-            } else {
-                const idx = state.products.findIndex(p => p.id === prod.id);
-                if (idx !== -1) state.products[idx] = prod;
-                saveLocalState();
-            }
+            return cloudSaveProduct(prod);
         }
 
         async function cloudDeleteProduct(prodId) {
+            state.products = state.products.filter(p => p.id !== prodId);
+            saveLocalState();
+
             if (state.dbReady && db) {
-                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'products', prodId));
-            } else {
-                state.products = state.products.filter(p => p.id !== prodId);
-                saveLocalState();
+                try {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'products', prodId));
+                } catch(e) { console.error(e); }
             }
         }
 
         async function cloudSaveUser(user) {
+            const idx = state.users.findIndex(u => u.id === user.id);
+            if (idx >= 0) state.users[idx] = user;
+            else state.users.push(user);
+            saveLocalState();
+
             if (state.dbReady && db) {
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', user.id), user);
-            } else {
-                state.users.push(user);
-                saveLocalState();
+                try {
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', user.id), user);
+                } catch(e) { console.error(e); }
             }
         }
 
         async function cloudSaveLog(logItem) {
-            if (state.dbReady && db) {
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'logs', logItem.id), logItem);
+            // Atualização Otimista Instantânea (Garante atualização imediata no cliente e admin)
+            const idx = state.logs.findIndex(l => l.id === logItem.id);
+            if (idx >= 0) {
+                state.logs[idx] = logItem;
             } else {
                 state.logs.unshift(logItem);
-                saveLocalState();
+            }
+            saveLocalState();
+
+            if (state.dbReady && db) {
+                try {
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'logs', logItem.id), logItem);
+                } catch(e) { console.error(e); }
             }
         }
 
         async function cloudMarkUserPaid(userId) {
             const pendingLogs = state.logs.filter(l => l.userId === userId && l.status === 'PENDING');
+            const nowIso = new Date().toISOString();
+
+            // Atualização local imediata
+            state.logs.forEach(l => {
+                if (l.userId === userId && l.status === 'PENDING') {
+                    l.status = 'PAID';
+                    l.paidAt = nowIso;
+                }
+            });
+            saveLocalState();
+
             if (state.dbReady && db) {
                 for (let l of pendingLogs) {
-                    const ref = doc(db, 'artifacts', appId, 'public', 'data', 'logs', l.id);
-                    await updateDoc(ref, { status: 'PAID', paidAt: new Date().toISOString() });
+                    try {
+                        const ref = doc(db, 'artifacts', appId, 'public', 'data', 'logs', l.id);
+                        await updateDoc(ref, { status: 'PAID', paidAt: nowIso });
+                    } catch(e) { console.error(e); }
                 }
-            } else {
-                state.logs.forEach(l => {
-                    if (l.userId === userId && l.status === 'PENDING') {
-                        l.status = 'PAID';
-                        l.paidAt = new Date().toISOString();
-                    }
-                });
-                saveLocalState();
             }
         }
 
@@ -904,26 +924,27 @@
             state.pixKey = pixKey;
             state.adminPhone = phone;
             state.adminPassword = password;
+            saveLocalState();
+
             if (state.dbReady && db) {
-                await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'general'), { 
-                    pixKey: pixKey,
-                    adminPhone: phone,
-                    adminPassword: password
-                });
-            } else {
-                safeSet('doceria_pix_key', state.pixKey);
-                safeSet('doceria_admin_phone', state.adminPhone);
-                safeSet('doceria_admin_password', state.adminPassword);
-                saveLocalState();
+                try {
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'general'), { 
+                        pixKey: pixKey,
+                        adminPhone: phone,
+                        adminPassword: password
+                    });
+                } catch(e) { console.error(e); }
             }
         }
 
         async function cloudDeleteLog(logId) {
+            state.logs = state.logs.filter(l => l.id !== logId);
+            saveLocalState();
+
             if (state.dbReady && db) {
-                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'logs', logId));
-            } else {
-                state.logs = state.logs.filter(l => l.id !== logId);
-                saveLocalState();
+                try {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'logs', logId));
+                } catch(e) { console.error(e); }
             }
         }
 
@@ -959,7 +980,7 @@
             );
         }
 
-        /* NAVIGATION & UI UPDATES */
+        /* NAVEGAÇÃO E RENDERING DE INTERFACE */
         function switchView(viewName) {
             document.getElementById('viewStore').classList.add('hidden');
             document.getElementById('viewMyAccount').classList.add('hidden');
@@ -1016,7 +1037,7 @@
             }
         }
 
-        /* AUTHENTICATION MODALS & ACTIONS */
+        /* AUTENTICAÇÃO E PERFIL DO CLIENTE */
         function openUserModal() {
             const logoutSection = document.getElementById('logoutSection');
             if (state.currentUser) {
@@ -1108,7 +1129,7 @@
             }
 
             const newUser = {
-                id: 'u_' + Date.now(),
+                id: generateUniqueId('u'),
                 name: name,
                 phone: phone,
                 pin: pin,
@@ -1125,7 +1146,7 @@
 
             closeUserModal();
             updateUI();
-            showToast(`Bem-vindo(a), ${name}! Conta criada na nuvem com sucesso.`, 'success');
+            showToast(`Bem-vindo(a), ${name}! Conta criada com sucesso.`, 'success');
         }
 
         function logoutCurrentUser() {
@@ -1137,7 +1158,7 @@
             showToast("Você saiu da sua conta.", "info");
         }
 
-        /* STORE CATALOG RENDERING & CONSUMPTION */
+        /* CATÁLOGO E REGISTRO DE PEDIDOS */
         function renderProductsGrid() {
             const container = document.getElementById('productsGrid');
             container.innerHTML = '';
@@ -1229,7 +1250,7 @@
             if (!state.currentUser || !state.selectedProductForConsume) return;
 
             const newLog = {
-                id: 'log_' + Date.now(),
+                id: generateUniqueId('log'),
                 userId: state.currentUser.id,
                 userName: state.currentUser.name,
                 productId: state.selectedProductForConsume.id,
@@ -1247,7 +1268,7 @@
             showToast(`Consumo de ${newLog.qty}x ${newLog.productName} registrado!`, "success");
         }
 
-        /* PIX COPY & WHATSAPP INTEGRATION */
+        /* PIX E WHATSAPP */
         function copyPixKey() {
             const key = state.pixKey || '84987878247';
             const tempInput = document.createElement('input');
@@ -1333,7 +1354,7 @@
             window.open(url, '_blank');
         }
 
-        /* ADMIN PANEL CONTROLS */
+        /* PAINEL DO ADMINISTRADOR */
         function toggleAdminMode() {
             if (state.isAdmin) {
                 state.isAdmin = false;
@@ -1415,7 +1436,30 @@
             const container = document.getElementById('adminUsersList');
             container.innerHTML = '';
 
-            state.users.forEach(user => {
+            // Mapeia todos os usuários cadastrados
+            const userMap = new Map();
+            state.users.forEach(u => userMap.set(u.id, u));
+
+            // Mapeia também qualquer cliente que tenha registros no log (garante exibição imediata de novos clientes)
+            state.logs.forEach(l => {
+                if (l.userId && !userMap.has(l.userId)) {
+                    userMap.set(l.userId, {
+                        id: l.userId,
+                        name: l.userName || 'Cliente',
+                        phone: '',
+                        pin: ''
+                    });
+                }
+            });
+
+            const allUsers = Array.from(userMap.values());
+
+            if (allUsers.length === 0) {
+                container.innerHTML = `<div class="col-span-full text-center py-6 text-slate-400 text-xs">Nenhum cliente cadastrado ou com histórico.</div>`;
+                return;
+            }
+
+            allUsers.forEach(user => {
                 const debt = getUserTotalDebt(user.id);
                 const userPendingLogs = state.logs.filter(l => l.userId === user.id && l.status === 'PENDING');
 
@@ -1457,10 +1501,10 @@
         }
 
         function clearUserDebt(userId) {
-            const user = state.users.find(u => u.id === userId);
+            const user = state.users.find(u => u.id === userId) || { name: 'Cliente' };
             const userDebt = getUserTotalDebt(userId);
 
-            if (!user || userDebt === 0) return;
+            if (userDebt === 0) return;
 
             customConfirm(
                 "Dar Baixa no Pagamento",
@@ -1468,7 +1512,7 @@
                 async () => {
                     await cloudMarkUserPaid(userId);
                     updateUI();
-                    showToast(`Pagamento de ${user.name} baixado na nuvem! Saldo zerado.`, "success");
+                    showToast(`Pagamento de ${user.name} baixado! Saldo zerado.`, "success");
                 }
             );
         }
@@ -1506,7 +1550,7 @@
             });
         }
 
-        /* CAMERA / PHOTO UPLOAD PREVIEWS */
+        /* UPLOAD / PREVIEW DE FOTOS */
         async function previewAddProductImage(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -1569,7 +1613,7 @@
             if (!name || isNaN(price)) return;
 
             const newProd = {
-                id: 'prod_' + Date.now(),
+                id: generateUniqueId('prod'),
                 name: name,
                 price: price,
                 icon: icon,
@@ -1731,7 +1775,7 @@
             showToast("Configurações e Chave Pix salvas com sucesso!", "success");
         }
 
-        /* UTILITY FUNCTIONS */
+        /* UTILITÁRIOS */
         function getUserTotalDebt(userId) {
             return state.logs
                 .filter(log => log.userId === userId && log.status === 'PENDING')
@@ -1779,7 +1823,7 @@
             }, 3000);
         }
 
-        // Exporting functions for HTML onclick handlers
+        // Expor funções globais para manipuladores HTML onclick
         window.switchView = switchView;
         window.openUserModal = openUserModal;
         window.closeUserModal = closeUserModal;
