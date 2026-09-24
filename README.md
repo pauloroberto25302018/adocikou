@@ -108,7 +108,6 @@
             </div>
 
             <div id="productsGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                <!-- Inserido dinamicamente via JS -->
             </div>
         </section>
 
@@ -135,7 +134,6 @@
                     </div>
                 </div>
 
-                <!-- Box da Chave Pix com Botão Copiar -->
                 <div class="bg-rose-50/70 border border-rose-200/80 p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3">
                     <div class="flex items-center space-x-3 w-full sm:w-auto">
                         <div class="w-10 h-10 rounded-2xl bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-sm shadow-rose-200">
@@ -635,7 +633,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, collection, onSnapshot, updateDoc, deleteDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, collection, onSnapshot, deleteDoc, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const DEFAULT_PRODUCTS = [
             { id: 'p1', name: 'Brownie Tradicional', price: 7.00, icon: 'fa-cookie-bite', color: 'bg-amber-100 text-amber-700' },
@@ -671,6 +669,16 @@
         }
         function safeSet(key, val) {
             try { localStorage.setItem(key, val); } catch(e) { memoryStore[key] = val; }
+        }
+
+        // FORMATA E PADRONIZA NÚMEROS DE WHATSAPP
+        function cleanPhoneNumber(phone) {
+            if (!phone) return '';
+            let cleaned = phone.replace(/\D/g, '');
+            if (cleaned.length >= 10 && !cleaned.startsWith('55')) {
+                cleaned = '55' + cleaned;
+            }
+            return cleaned;
         }
 
         function generateUniqueId(prefix = 'id') {
@@ -775,7 +783,7 @@
                 state.users = items;
                 
                 if (state.currentUser) {
-                    const match = state.users.find(u => u.id === state.currentUser.id);
+                    const match = state.users.find(u => cleanPhoneNumber(u.phone) === cleanPhoneNumber(state.currentUser.phone));
                     if (match) state.currentUser = match;
                 }
                 updateUI();
@@ -862,14 +870,18 @@
         }
 
         async function cloudSaveUser(user) {
-            const idx = state.users.findIndex(u => u.id === user.id);
+            const cleanPhone = cleanPhoneNumber(user.phone);
+            user.phone = cleanPhone;
+            user.id = cleanPhone; // ID fixo único baseado no WhatsApp
+
+            const idx = state.users.findIndex(u => cleanPhoneNumber(u.phone) === cleanPhone);
             if (idx >= 0) state.users[idx] = user;
             else state.users.push(user);
             saveLocalState();
 
             if (state.dbReady && db) {
                 try {
-                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', user.id), user);
+                    await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', cleanPhone), user);
                 } catch(e) { console.error("Erro ao salvar usuário:", e); }
             }
         }
@@ -890,16 +902,15 @@
             }
         }
 
-        /* CORREÇÃO CRÍTICA: DAR BAIXA EM LOTE COM WRITEBATCH */
-        async function cloudMarkUserPaid(userId) {
-            const pendingLogs = state.logs.filter(l => l.userId === userId && l.status === 'PENDING');
+        async function cloudMarkUserPaid(userPhone) {
+            const cleanPhone = cleanPhoneNumber(userPhone);
+            const pendingLogs = state.logs.filter(l => cleanPhoneNumber(l.userPhone || l.userId) === cleanPhone && l.status === 'PENDING');
             if (pendingLogs.length === 0) return;
 
             const nowIso = new Date().toISOString();
 
-            // Atualização local imediata
             state.logs.forEach(l => {
-                if (l.userId === userId && l.status === 'PENDING') {
+                if (cleanPhoneNumber(l.userPhone || l.userId) === cleanPhone && l.status === 'PENDING') {
                     l.status = 'PAID';
                     l.paidAt = nowIso;
                 }
@@ -1019,7 +1030,7 @@
                 currentUserNavName.innerText = state.currentUser.name;
                 bannerUserName.innerText = `Olá, ${state.currentUser.name}!`;
                 
-                const userDebt = getUserTotalDebt(state.currentUser.id);
+                const userDebt = getUserTotalDebt(state.currentUser.phone);
                 bannerUserBalance.innerText = formatCurrency(userDebt);
             } else {
                 currentUserNavName.innerText = 'Entrar';
@@ -1073,7 +1084,7 @@
 
         function handleLoginUser(e) {
             e.preventDefault();
-            const phoneInput = document.getElementById('loginPhoneInput').value.replace(/\D/g, '');
+            const phoneInput = cleanPhoneNumber(document.getElementById('loginPhoneInput').value);
             const pinInput = document.getElementById('loginPinInput').value.trim();
 
             if (!phoneInput || !pinInput) {
@@ -1081,11 +1092,9 @@
                 return;
             }
 
-            const cleanSearchPhone = phoneInput.startsWith('55') ? phoneInput : '55' + phoneInput;
-
             const foundUser = state.users.find(u => {
-                const userPhoneClean = u.phone ? u.phone.replace(/\D/g, '') : '';
-                return (userPhoneClean === cleanSearchPhone || userPhoneClean.endsWith(phoneInput)) && (u.pin === pinInput || !u.pin);
+                const uPhone = cleanPhoneNumber(u.phone);
+                return uPhone === phoneInput && (u.pin === pinInput || !u.pin);
             });
 
             if (foundUser) {
@@ -1106,7 +1115,7 @@
             const pinInput = document.getElementById('newUserPinInput');
             
             const name = nameInput.value.trim();
-            let phone = phoneInput ? phoneInput.value.replace(/\D/g, '') : '';
+            const phone = cleanPhoneNumber(phoneInput.value);
             const pin = pinInput ? pinInput.value.trim() : '1234';
 
             if (!name || !phone || !pin) {
@@ -1114,11 +1123,7 @@
                 return;
             }
 
-            if (phone.length >= 10 && !phone.startsWith('55')) {
-                phone = '55' + phone;
-            }
-
-            const existingUser = state.users.find(u => u.phone === phone);
+            const existingUser = state.users.find(u => cleanPhoneNumber(u.phone) === phone);
             if (existingUser) {
                 showToast("Este WhatsApp já possui cadastro! Faça Login.", "error");
                 switchUserAuthTab('login');
@@ -1127,7 +1132,7 @@
             }
 
             const newUser = {
-                id: generateUniqueId('u'),
+                id: phone,
                 name: name,
                 phone: phone,
                 pin: pin,
@@ -1246,9 +1251,12 @@
         async function confirmConsumption() {
             if (!state.currentUser || !state.selectedProductForConsume) return;
 
+            const userPhone = cleanPhoneNumber(state.currentUser.phone);
+
             const newLog = {
                 id: generateUniqueId('log'),
-                userId: state.currentUser.id,
+                userId: userPhone,
+                userPhone: userPhone,
                 userName: state.currentUser.name,
                 productId: state.selectedProductForConsume.id,
                 productName: state.selectedProductForConsume.name,
@@ -1283,16 +1291,18 @@
         function renderMyAccount() {
             if (!state.currentUser) return;
 
+            const userPhone = cleanPhoneNumber(state.currentUser.phone);
+
             document.getElementById('extratoClientName').innerText = state.currentUser.name;
             document.getElementById('myAccountDate').innerText = new Date().toLocaleDateString('pt-BR');
 
             const pixDisplay = document.getElementById('pixKeyDisplay');
             if (pixDisplay) pixDisplay.innerText = state.pixKey || '84 987878247';
 
-            const debt = getUserTotalDebt(state.currentUser.id);
+            const debt = getUserTotalDebt(userPhone);
             document.getElementById('extratoTotalDebt').innerText = formatCurrency(debt);
 
-            const userLogs = state.logs.filter(l => l.userId === state.currentUser.id);
+            const userLogs = state.logs.filter(l => cleanPhoneNumber(l.userPhone || l.userId) === userPhone);
             const tbody = document.getElementById('myConsumptionTable');
             tbody.innerHTML = '';
 
@@ -1325,13 +1335,15 @@
         function sendWhatsAppSummary() {
             if (!state.currentUser) return;
 
-            const debt = getUserTotalDebt(state.currentUser.id);
+            const userPhone = cleanPhoneNumber(state.currentUser.phone);
+            const debt = getUserTotalDebt(userPhone);
+
             if (debt === 0) {
                 showToast("Você não possui saldo pendente no momento!", "info");
                 return;
             }
 
-            const pendingLogs = state.logs.filter(l => l.userId === state.currentUser.id && l.status === 'PENDING');
+            const pendingLogs = state.logs.filter(l => cleanPhoneNumber(l.userPhone || l.userId) === userPhone && l.status === 'PENDING');
             
             let msg = `*Olá! Segue meu comprovante de pagamento da Adocikou:*\n\n`;
             msg += `👤 *Cliente:* ${state.currentUser.name}\n`;
@@ -1404,9 +1416,10 @@
             const debtorsSet = new Set();
 
             state.logs.forEach(log => {
+                const uPhone = cleanPhoneNumber(log.userPhone || log.userId);
                 if (log.status === 'PENDING') {
                     totalPending += log.totalPrice;
-                    debtorsSet.add(log.userId);
+                    if (uPhone) debtorsSet.add(uPhone);
                 } else if (log.status === 'PAID') {
                     totalPaid += log.totalPrice;
                 }
@@ -1432,14 +1445,18 @@
             container.innerHTML = '';
 
             const userMap = new Map();
-            state.users.forEach(u => userMap.set(u.id, u));
+            state.users.forEach(u => {
+                const phoneKey = cleanPhoneNumber(u.phone);
+                if (phoneKey) userMap.set(phoneKey, u);
+            });
 
             state.logs.forEach(l => {
-                if (l.userId && !userMap.has(l.userId)) {
-                    userMap.set(l.userId, {
-                        id: l.userId,
+                const phoneKey = cleanPhoneNumber(l.userPhone || l.userId);
+                if (phoneKey && !userMap.has(phoneKey)) {
+                    userMap.set(phoneKey, {
+                        id: phoneKey,
                         name: l.userName || 'Cliente',
-                        phone: '',
+                        phone: phoneKey,
                         pin: ''
                     });
                 }
@@ -1453,21 +1470,22 @@
             }
 
             allUsers.forEach(user => {
-                const debt = getUserTotalDebt(user.id);
-                const userPendingLogs = state.logs.filter(l => l.userId === user.id && l.status === 'PENDING');
+                const cleanPhone = cleanPhoneNumber(user.phone);
+                const debt = getUserTotalDebt(cleanPhone);
+                const userPendingLogs = state.logs.filter(l => cleanPhoneNumber(l.userPhone || l.userId) === cleanPhone && l.status === 'PENDING');
 
                 const card = document.createElement('div');
                 card.className = "bg-slate-50 border border-slate-200 p-4 rounded-2xl flex flex-col justify-between space-y-3";
                 
                 let pendingItemsText = userPendingLogs.map(i => `${i.qty}x ${i.productName}`).join(', ') || 'Nenhum item em aberto';
-                const formattedPhone = user.phone ? user.phone.replace(/^55/, '') : '';
+                const formattedPhone = cleanPhone ? cleanPhone.replace(/^55/, '') : '';
 
                 card.innerHTML = `
                     <div class="flex justify-between items-start">
                         <div>
                             <h4 class="font-bold text-slate-800 text-base">${user.name}</h4>
                             ${formattedPhone ? `
-                                <a href="https://wa.me/${user.phone}" target="_blank" class="text-xs text-green-600 hover:underline flex items-center font-medium mt-0.5">
+                                <a href="https://wa.me/${cleanPhone}" target="_blank" class="text-xs text-green-600 hover:underline flex items-center font-medium mt-0.5">
                                     <i class="fa-brands fa-whatsapp text-green-500 mr-1"></i> ${formattedPhone}
                                 </a>
                             ` : '<span class="text-[11px] text-slate-400">Sem WhatsApp</span>'}
@@ -1480,7 +1498,7 @@
                     <div class="pt-2 border-t border-slate-200/60 flex items-center justify-between">
                         <span class="text-[11px] text-slate-400">${userPendingLogs.length} consumo(s) pendente(s)</span>
                         ${debt > 0 ? `
-                            <button onclick="clearUserDebt('${user.id}')" class="bg-green-600 hover:bg-green-700 text-white font-bold text-xs px-3 py-1.5 rounded-xl transition shadow-sm flex items-center space-x-1">
+                            <button onclick="clearUserDebt('${cleanPhone}')" class="bg-green-600 hover:bg-green-700 text-white font-bold text-xs px-3 py-1.5 rounded-xl transition shadow-sm flex items-center space-x-1">
                                 <i class="fa-solid fa-check"></i>
                                 <span>Dar Baixa (Pago)</span>
                             </button>
@@ -1493,9 +1511,10 @@
             });
         }
 
-        function clearUserDebt(userId) {
-            const user = state.users.find(u => u.id === userId) || { name: 'Cliente' };
-            const userDebt = getUserTotalDebt(userId);
+        function clearUserDebt(userPhone) {
+            const cleanPhone = cleanPhoneNumber(userPhone);
+            const user = state.users.find(u => cleanPhoneNumber(u.phone) === cleanPhone) || { name: 'Cliente' };
+            const userDebt = getUserTotalDebt(cleanPhone);
 
             if (userDebt === 0) return;
 
@@ -1503,7 +1522,7 @@
                 "Dar Baixa no Pagamento",
                 `Confirma dar baixa de ${formatCurrency(userDebt)} no pagamento de ${user.name}? O saldo devedor será zerado.`,
                 async () => {
-                    await cloudMarkUserPaid(userId);
+                    await cloudMarkUserPaid(cleanPhone);
                     updateUI();
                     showToast(`Pagamento de ${user.name} baixado! Saldo zerado.`, "success");
                 }
@@ -1767,9 +1786,12 @@
             showToast("Configurações e Chave Pix salvas com sucesso!", "success");
         }
 
-        function getUserTotalDebt(userId) {
+        function getUserTotalDebt(userPhone) {
+            const cleanPhone = cleanPhoneNumber(userPhone);
+            if (!cleanPhone) return 0;
+
             return state.logs
-                .filter(log => log.userId === userId && log.status === 'PENDING')
+                .filter(log => cleanPhoneNumber(log.userPhone || log.userId) === cleanPhone && log.status === 'PENDING')
                 .reduce((acc, log) => acc + log.totalPrice, 0);
         }
 
