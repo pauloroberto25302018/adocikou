@@ -240,6 +240,9 @@
                 <button id="adminTabBtnDebts" onclick="switchAdminTab('debts')" class="pb-3 text-sm font-bold text-rose-600 border-b-2 border-rose-600 whitespace-nowrap">
                     <i class="fa-solid fa-receipt mr-1"></i> Contas & Dar Baixa
                 </button>
+                <button id="adminTabBtnCustomers" onclick="switchAdminTab('customers')" class="pb-3 text-sm font-bold text-slate-500 hover:text-slate-700 whitespace-nowrap">
+                    <i class="fa-solid fa-users-gear mr-1"></i> Cadastro de Clientes
+                </button>
                 <button id="adminTabBtnLog" onclick="switchAdminTab('log')" class="pb-3 text-sm font-bold text-slate-500 hover:text-slate-700 whitespace-nowrap">
                     <i class="fa-solid fa-list-check mr-1"></i> Extrato Geral (Dia a Dia)
                 </button>
@@ -260,6 +263,38 @@
                     </div>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4" id="adminUsersList">
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB NOVA: CADASTRO DE CLIENTES -->
+            <div id="adminTabCustomers" class="hidden space-y-4">
+                <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 space-y-6">
+                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-slate-100 pb-4">
+                        <div>
+                            <h3 class="text-lg font-bold font-title text-slate-800">Clientes Cadastrados</h3>
+                            <p class="text-xs text-slate-500">Gerencie contas, edite dados e redefina senhas/PINs dos clientes</p>
+                        </div>
+                        <button onclick="openAddCustomerModal()" class="bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition shadow-md shadow-rose-200 flex items-center space-x-2">
+                            <i class="fa-solid fa-user-plus"></i>
+                            <span>Novo Cliente</span>
+                        </button>
+                    </div>
+
+                    <div class="overflow-x-auto custom-scrollbar">
+                        <table class="w-full text-left text-sm text-slate-600">
+                            <thead class="bg-slate-50 text-slate-400 font-semibold text-xs uppercase border-b border-slate-100">
+                                <tr>
+                                    <th class="p-3">Nome do Cliente</th>
+                                    <th class="p-3">WhatsApp</th>
+                                    <th class="p-3 text-center">Senha / PIN</th>
+                                    <th class="p-3 text-right">Saldo Devedor</th>
+                                    <th class="p-3 text-center">Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody id="adminCustomersTable" class="divide-y divide-slate-100">
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -432,6 +467,41 @@
                     Confirmar
                 </button>
             </div>
+        </div>
+    </div>
+
+    <!-- MODAL: GERENCIAR / EDITAR CLIENTE (ADMIN) -->
+    <div id="modalEditCustomer" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center">
+                <h3 id="modalCustomerTitle" class="text-xl font-bold font-title text-slate-800">Editar Cliente</h3>
+                <button onclick="closeEditCustomerModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+
+            <form id="formEditCustomer" onsubmit="handleSaveCustomer(event)" class="space-y-4">
+                <input type="hidden" id="editCustomerOldPhone">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Nome Completo</label>
+                    <input type="text" id="editCustomerName" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-rose-400">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">WhatsApp (com DDD)</label>
+                    <input type="tel" id="editCustomerPhone" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-rose-400">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-600 mb-1">Senha / PIN de Acesso (4 a 6 dígitos)</label>
+                    <input type="text" maxlength="6" id="editCustomerPin" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-rose-400 text-center font-mono">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 pt-2">
+                    <button type="button" onclick="closeEditCustomerModal()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 rounded-xl text-sm transition">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="bg-rose-600 hover:bg-rose-700 text-white font-bold py-2.5 rounded-xl transition text-sm shadow-md shadow-rose-200">
+                        Salvar Alterações
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -671,7 +741,6 @@
             try { localStorage.setItem(key, val); } catch(e) { memoryStore[key] = val; }
         }
 
-        // FORMATA E PADRONIZA NÚMEROS DE WHATSAPP
         function cleanPhoneNumber(phone) {
             if (!phone) return '';
             let cleaned = phone.replace(/\D/g, '');
@@ -872,7 +941,7 @@
         async function cloudSaveUser(user) {
             const cleanPhone = cleanPhoneNumber(user.phone);
             user.phone = cleanPhone;
-            user.id = cleanPhone; // ID fixo único baseado no WhatsApp
+            user.id = cleanPhone;
 
             const idx = state.users.findIndex(u => cleanPhoneNumber(u.phone) === cleanPhone);
             if (idx >= 0) state.users[idx] = user;
@@ -883,6 +952,18 @@
                 try {
                     await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', cleanPhone), user);
                 } catch(e) { console.error("Erro ao salvar usuário:", e); }
+            }
+        }
+
+        async function cloudDeleteUser(userPhone) {
+            const cleanPhone = cleanPhoneNumber(userPhone);
+            state.users = state.users.filter(u => cleanPhoneNumber(u.phone) !== cleanPhone);
+            saveLocalState();
+
+            if (state.dbReady && db) {
+                try {
+                    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', cleanPhone));
+                } catch(e) { console.error("Erro ao excluir usuário:", e); }
             }
         }
 
@@ -1395,15 +1476,19 @@
         }
 
         function switchAdminTab(tabName) {
-            ['debts', 'log', 'products', 'settings'].forEach(t => {
-                document.getElementById(`adminTab${capitalize(t)}`).classList.add('hidden');
+            ['debts', 'customers', 'log', 'products', 'settings'].forEach(t => {
+                const el = document.getElementById(`adminTab${capitalize(t)}`);
+                if (el) el.classList.add('hidden');
+
                 const btn = document.getElementById(`adminTabBtn${capitalize(t)}`);
                 if (btn) {
                     btn.className = "pb-3 text-sm font-bold text-slate-500 hover:text-slate-700 whitespace-nowrap";
                 }
             });
 
-            document.getElementById(`adminTab${capitalize(tabName)}`).classList.remove('hidden');
+            const activeTab = document.getElementById(`adminTab${capitalize(tabName)}`);
+            if (activeTab) activeTab.classList.remove('hidden');
+
             const activeBtn = document.getElementById(`adminTabBtn${capitalize(tabName)}`);
             if (activeBtn) {
                 activeBtn.className = "pb-3 text-sm font-bold text-rose-600 border-b-2 border-rose-600 whitespace-nowrap";
@@ -1430,6 +1515,7 @@
             document.getElementById('adminDebtorsCount').innerText = debtorsSet.size;
 
             renderAdminUsersList();
+            renderAdminCustomersTable();
             renderAdminGlobalLog();
             renderAdminProductsList();
 
@@ -1508,6 +1594,144 @@
                     </div>
                 `;
                 container.appendChild(card);
+            });
+        }
+
+        /* RENDEREIZAÇÃO E MANUTENÇÃO DA TABELAS DE CLIENTES */
+        function renderAdminCustomersTable() {
+            const tbody = document.getElementById('adminCustomersTable');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+
+            const userMap = new Map();
+            state.users.forEach(u => {
+                const phoneKey = cleanPhoneNumber(u.phone);
+                if (phoneKey) userMap.set(phoneKey, u);
+            });
+
+            // Inclui utilizadores que têm registros no log mesmo se não estiverem na coleção 'users'
+            state.logs.forEach(l => {
+                const phoneKey = cleanPhoneNumber(l.userPhone || l.userId);
+                if (phoneKey && !userMap.has(phoneKey)) {
+                    userMap.set(phoneKey, {
+                        id: phoneKey,
+                        name: l.userName || 'Cliente',
+                        phone: phoneKey,
+                        pin: '----'
+                    });
+                }
+            });
+
+            const customersList = Array.from(userMap.values());
+
+            if (customersList.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center py-6 text-slate-400 text-xs">Nenhum cliente cadastrado ainda.</td></tr>`;
+                return;
+            }
+
+            customersList.forEach(u => {
+                const cleanPhone = cleanPhoneNumber(u.phone);
+                const debt = getUserTotalDebt(cleanPhone);
+                const formattedPhone = cleanPhone ? cleanPhone.replace(/^55/, '') : '';
+
+                const tr = document.createElement('tr');
+                tr.className = "hover:bg-slate-50 transition";
+                tr.innerHTML = `
+                    <td class="p-3 font-semibold text-slate-800">${u.name}</td>
+                    <td class="p-3">
+                        ${formattedPhone ? `<a href="https://wa.me/${cleanPhone}" target="_blank" class="text-green-600 hover:underline font-mono text-xs"><i class="fa-brands fa-whatsapp mr-1"></i>${formattedPhone}</a>` : '<span class="text-slate-400 text-xs">--</span>'}
+                    </td>
+                    <td class="p-3 text-center font-mono text-xs font-bold text-slate-700">${u.pin || '----'}</td>
+                    <td class="p-3 text-right font-bold ${debt > 0 ? 'text-rose-600' : 'text-slate-400'}">${formatCurrency(debt)}</td>
+                    <td class="p-3 text-center space-x-1">
+                        <button onclick="openEditCustomerModal('${cleanPhone}')" class="text-slate-500 hover:text-amber-600 p-1.5 rounded-lg transition" title="Editar / Alterar PIN">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                        </button>
+                        <button onclick="deleteCustomer('${cleanPhone}')" class="text-slate-500 hover:text-rose-600 p-1.5 rounded-lg transition" title="Excluir Cliente">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function openAddCustomerModal() {
+            document.getElementById('modalCustomerTitle').innerText = 'Cadastrar Novo Cliente';
+            document.getElementById('editCustomerOldPhone').value = '';
+            document.getElementById('editCustomerName').value = '';
+            document.getElementById('editCustomerPhone').value = '';
+            document.getElementById('editCustomerPin').value = '1234';
+            document.getElementById('modalEditCustomer').classList.remove('hidden');
+        }
+
+        function openEditCustomerModal(userPhone) {
+            const cleanPhone = cleanPhoneNumber(userPhone);
+            const user = state.users.find(u => cleanPhoneNumber(u.phone) === cleanPhone) || {
+                name: '',
+                phone: cleanPhone,
+                pin: '1234'
+            };
+
+            document.getElementById('modalCustomerTitle').innerText = 'Editar Cliente';
+            document.getElementById('editCustomerOldPhone').value = cleanPhone;
+            document.getElementById('editCustomerName').value = user.name;
+            document.getElementById('editCustomerPhone').value = cleanPhone.replace(/^55/, '');
+            document.getElementById('editCustomerPin').value = user.pin || '1234';
+            document.getElementById('modalEditCustomer').classList.remove('hidden');
+        }
+
+        function closeEditCustomerModal() {
+            document.getElementById('modalEditCustomer').classList.add('hidden');
+        }
+
+        async function handleSaveCustomer(e) {
+            e.preventDefault();
+            const oldPhone = document.getElementById('editCustomerOldPhone').value;
+            const name = document.getElementById('editCustomerName').value.trim();
+            const newPhone = cleanPhoneNumber(document.getElementById('editCustomerPhone').value);
+            const pin = document.getElementById('editCustomerPin').value.trim();
+
+            if (!name || !newPhone || !pin) {
+                showToast("Preencha todos os campos do cliente.", "error");
+                return;
+            }
+
+            // Se o WhatsApp alterou, verifica se já existe outro usuário com o novo número
+            if (oldPhone !== newPhone) {
+                const exists = state.users.some(u => cleanPhoneNumber(u.phone) === newPhone);
+                if (exists) {
+                    showToast("Já existe um cliente cadastrado com este novo WhatsApp!", "error");
+                    return;
+                }
+                // Exclui o registo antigo do Firestore se o telefone tiver mudado
+                if (oldPhone) {
+                    await cloudDeleteUser(oldPhone);
+                }
+            }
+
+            const updatedUser = {
+                id: newPhone,
+                name: name,
+                phone: newPhone,
+                pin: pin,
+                updatedAt: new Date().toISOString()
+            };
+
+            await cloudSaveUser(updatedUser);
+            closeEditCustomerModal();
+            updateUI();
+            showToast(`Cliente ${name} salvo com sucesso!`, "success");
+        }
+
+        function deleteCustomer(userPhone) {
+            const cleanPhone = cleanPhoneNumber(userPhone);
+            const user = state.users.find(u => cleanPhoneNumber(u.phone) === cleanPhone) || { name: 'Cliente' };
+
+            customConfirm("Excluir Cliente", `Tem certeza que deseja excluir o cadastro de "${user.name}"? Os registros de consumo mantêm-se arquivados.`, async () => {
+                await cloudDeleteUser(cleanPhone);
+                updateUI();
+                showToast("Cadastro de cliente removido!", "success");
             });
         }
 
@@ -1868,6 +2092,11 @@
         window.toggleProductActive = toggleProductActive;
         window.copyPixKey = copyPixKey;
         window.closeConfirmModal = closeConfirmModal;
+        window.openAddCustomerModal = openAddCustomerModal;
+        window.openEditCustomerModal = openEditCustomerModal;
+        window.closeEditCustomerModal = closeEditCustomerModal;
+        window.handleSaveCustomer = handleSaveCustomer;
+        window.deleteCustomer = deleteCustomer;
 
         window.addEventListener('DOMContentLoaded', initApp);
     </script>
