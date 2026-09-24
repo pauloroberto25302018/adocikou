@@ -1,18 +1,3 @@
-Aqui está o código completo do `index.html` corrigido e atualizado.
-
-### Principais correções e melhorias aplicadas:
-
-1. **Atomicidade e Desempenho no Firestore (`writeBatch`)**: Na função `cloudMarkUserPaid`, a baixa dos consumos devedores do cliente agora é efetuada em uma única operação em lote na nuvem (`writeBatch`), garantindo que todos os itens pendentes sejam liquidados simultaneamente.
-
-
-2. **Tratamento de Erros e Feedback de Permissão**: Adicionado tratamento de erros nas conexões `onSnapshot` do Firestore com aviso em log para identificar se as regras do banco de dados bloquearam o acesso.
-
-
-3. **Sincronização em Tempo Real Otimizada**: Mantida a reatividade total sem perda de estado local e sem conflitos de sobrescrita ao criar registros.
-
-
-
-```html
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -1866,5 +1851,3 @@ Aqui está o código completo do `index.html` corrigido e atualizado.
     </script>
 </body>
 </html>
-
-```
